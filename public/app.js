@@ -15,6 +15,12 @@ function dateToString(date) {
   return date.toISOString().split('T')[0]
 }
 
+function addMinutes(time, minutes) {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + minutes
+  return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`
+}
+
 function getTimeSlots() {
   const slots = []
   for (let h = START_HOUR; h < END_HOUR; h++) {
@@ -29,15 +35,22 @@ function toMins(t) {
   return h * 60 + m
 }
 
-function overlaps(s1, e1, s2, e2) {
-  return s1 < e2 && e1 > s2
+async function loadBookings() {
+  const date = dateToString(currentDate)
+  const res = await fetch(`/api/bookings?date=${date}`)
+  const json = await res.json()
+  bookings = json.data || []
+  renderGrid()
 }
 
-function getBookingsForSlot(venue, date, time) {
+function getBookingsForSlot(venue, time) {
   const startM = toMins(time)
+  const endM = startM + 30
   return bookings.filter(b => {
-    if (b.venue !== venue || b.date !== date) return false
-    return overlaps(startM, startM + 30, toMins(b.time), toMins(b.time) + b.duration)
+    if (b.venue !== venue) return false
+    const bStart = toMins(b.start_time.slice(0,5))
+    const bEnd = toMins(b.end_time.slice(0,5))
+    return startM < bEnd && endM > bStart
   })
 }
 
@@ -47,7 +60,6 @@ function renderGrid() {
   document.getElementById('current-date').textContent = formatDate(currentDate)
 
   const timeSlots = getTimeSlots()
-  const dateStr = dateToString(currentDate)
 
   const emptyHeader = document.createElement('div')
   emptyHeader.className = 'col-header'
@@ -70,14 +82,13 @@ function renderGrid() {
       const slot = document.createElement('div')
       slot.className = 'slot'
 
-      const slotBookings = getBookingsForSlot(venue, dateStr, time)
-      if (slotBookings.length > 0) {
-        const b = slotBookings[0]
+      const slotBookings = getBookingsForSlot(venue, time)
+      slotBookings.forEach(b => {
         const card = document.createElement('div')
         card.className = 'booking'
-        card.textContent = `${b.horse} · ${b.discipline}`
+        card.textContent = `${b.horse_name} · ${b.discipline}`
         slot.appendChild(card)
-      }
+      })
 
       slot.onclick = () => openModal(venue, time)
       grid.appendChild(slot)
@@ -108,53 +119,55 @@ function closeModal() {
   document.getElementById('modal').style.display = 'none'
 }
 
-function saveBooking() {
+async function saveBooking() {
   const venue = document.getElementById('f-venue').value
   const date = document.getElementById('f-date').value
   const time = document.getElementById('f-time').value
   const duration = parseInt(document.getElementById('f-dur').value)
-  const horse = document.getElementById('f-horse').value.trim()
+  const horse_name = document.getElementById('f-horse').value.trim()
   const discipline = document.getElementById('f-disc').value
 
-  if (!horse) {
+  if (!horse_name) {
     alert('Введите кличку лошади')
     return
   }
 
-  if (venue === 'Манеж') {
-    const myBookings = bookings.filter(b => {
-      if (b.venue !== 'Манеж' || b.date !== date) return false
-      return overlaps(toMins(time), toMins(time) + duration, toMins(b.time), toMins(b.time) + b.duration)
-    })
-    if (myBookings.length >= 3) {
-      alert('Вы уже записали 3 лошади в манеж на это время')
-      return
-    }
+  const end_time = addMinutes(time, duration)
+
+  const res = await fetch('/api/bookings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ horse_name, venue, discipline, booking_date: date, start_time: time, end_time })
+  })
+
+  const json = await res.json()
+
+  if (!res.ok) {
+    alert(json.error)
+    return
   }
 
-  bookings.push({ venue, date, time, duration, horse, discipline })
   closeModal()
-  renderGrid()
+  loadBookings()
 }
 
 document.getElementById('prev-day').onclick = () => {
   currentDate.setDate(currentDate.getDate() - 1)
-  renderGrid()
+  loadBookings()
 }
 
 document.getElementById('next-day').onclick = () => {
   currentDate.setDate(currentDate.getDate() + 1)
-  renderGrid()
+  loadBookings()
 }
 
 document.getElementById('modal-close').onclick = closeModal
 document.getElementById('modal-cancel').onclick = closeModal
 document.getElementById('modal-save').onclick = saveBooking
 
-document.getElementById('modal-bg') 
 document.getElementById('modal').onclick = function(e) {
   if (e.target === this) closeModal()
 }
 
 fillTimeSelect()
-renderGrid()
+loadBookings()
