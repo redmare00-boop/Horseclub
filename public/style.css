@@ -1,0 +1,227 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  background: #f5f5f5;
+  color: #333;
+}
+
+.topbar {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar h1 {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.date-nav button {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.date-nav button:hover {
+  background: #f0f0f0;
+}
+
+#current-date {
+  font-size: 15px;
+  font-weight: 500;
+  min-width: 180px;
+  text-align: center;
+}
+
+.schedule-wrap {
+  padding: 20px;
+  overflow-x: auto;
+}
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(5, 1fr);
+  min-width: 600px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+}
+
+.col-header {
+  padding: 10px 6px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 12px;
+  background: #f8f8f8;
+  border-bottom: 1px solid #e0e0e0;
+  border-right: 1px solid #e0e0e0;
+}
+
+.time-cell {
+  padding: 0 6px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 11px;
+  color: #999;
+  border-right: 1px solid #e0e0e0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.slot {
+  height: 36px;
+  border-right: 1px solid #e0e0e0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  position: relative;
+}
+
+.slot:hover {
+  background: #f9f7ff;
+}
+
+.booking {
+  position: absolute;
+  inset: 2px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  overflow: hidden;
+  border-left: 3px solid #534AB7;
+  background: #EEEDFE;
+  color: #26215C;
+}
+
+.booking.other {
+  border-left-color: #1D9E75;
+  background: #E1F5EE;
+  color: #04342C;
+}
+.modal-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 360px;
+  max-width: 95vw;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #999;
+  padding: 4px;
+}
+
+.modal-close:hover {
+  color: #333;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.modal-buttons button:first-child {
+  flex: 1;
+  padding: 9px;
+  background: #534AB7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modal-buttons button:first-child:hover {
+  background: #3C3489;
+}
+
+.modal-buttons button:last-child {
+  flex: 1;
+  padding: 9px;
+  background: #fff;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modal-buttons button:last-child:hover {
+  background: #f5f5f5;
+}
