@@ -5,7 +5,7 @@ require('dotenv').config()
 
 const pool = require('./db/pool')
 const bookingsRouter = require('./routes/bookings')
-
+const authRouter = require('./routes/auth')
 const app = express()
 const PORT = process.env.PORT || 3000
 
@@ -14,7 +14,7 @@ app.use(express.json())
 app.use(express.static(path.join(__dirname, '../public')))
 
 app.use('/api/bookings', bookingsRouter)
-
+app.use('/api/auth', authRouter)
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'Сервер работает!' })
 })
