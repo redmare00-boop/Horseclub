@@ -410,7 +410,11 @@ function clearForm() {
 function previewPhoto(input) {
   const file = input.files[0];
   if (!file) return;
-  // Сжимаем до максимум 800px
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Фото слишком большое! Максимальный размер — 5 МБ. Пожалуйста, выберите другое фото.');
+    input.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = (e) => {
     const img = new Image();
