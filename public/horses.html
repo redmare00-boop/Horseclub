@@ -71,7 +71,6 @@
     }
     .empty-state .emoji { font-size: 3rem; margin-bottom: 12px; }
 
-    /* Модальное окно */
     .overlay {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,.5); z-index: 999;
@@ -132,6 +131,17 @@
       background: none; border: 1px solid #c62828; color: #c62828;
       padding: 9px 18px; border-radius: 8px;
       font-size: 0.9rem; cursor: pointer; margin-top: 12px; margin-left: 8px;
+    }
+
+    .photo-upload-area {
+      border: 2px dashed #c9b99a; border-radius: 8px;
+      padding: 12px; text-align: center; cursor: pointer;
+      background: #faf7f4; transition: border-color .15s;
+    }
+    .photo-upload-area:hover { border-color: #4a3728; }
+    .photo-preview-img {
+      width: 100%; max-height: 200px; object-fit: cover;
+      border-radius: 8px; margin-bottom: 8px; display: none;
     }
 
     .med-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
@@ -227,7 +237,14 @@
           <div><label>Владелец</label><input id="f-owner" placeholder="Иванова А.В."></div>
         </div>
         <div class="form-row full">
-          <div><label>Фото (URL)</label><input id="f-photo" placeholder="https://..."></div>
+          <div>
+            <label>Фото</label>
+            <div class="photo-upload-area" onclick="document.getElementById('f-photo').click()">
+              <img id="photo-img" class="photo-preview-img" src="" alt="Фото лошади">
+              <div id="photo-placeholder">📷 Нажмите чтобы выбрать фото</div>
+            </div>
+            <input type="file" id="f-photo" accept="image/*" style="display:none" onchange="previewPhoto(this)">
+          </div>
         </div>
         <div class="form-row full">
           <div><label>Заметки</label><textarea id="f-notes" placeholder="Особенности, аллергии..."></textarea></div>
@@ -359,8 +376,16 @@ async function openHorse(id) {
   document.getElementById('f-chip').value        = h.chip_number || '';
   document.getElementById('f-passport').value    = h.passport_number || '';
   document.getElementById('f-owner').value       = h.owner || '';
-  document.getElementById('f-photo').value       = h.photo_url || '';
   document.getElementById('f-notes').value       = h.notes || '';
+  window._pendingPhotoBase64 = null;
+  if (h.photo_url) {
+    document.getElementById('photo-img').src = h.photo_url;
+    document.getElementById('photo-img').style.display = 'block';
+    document.getElementById('photo-placeholder').style.display = 'none';
+  } else {
+    document.getElementById('photo-img').style.display = 'none';
+    document.getElementById('photo-placeholder').style.display = 'block';
+  }
   renderMedList(h.medical || []);
   switchTab('info');
   document.getElementById('horse-modal').classList.add('open');
@@ -372,10 +397,40 @@ function closeModal() {
 }
 
 function clearForm() {
-  ['f-name','f-color','f-breed','f-year','f-chip','f-passport','f-owner','f-photo','f-notes']
+  ['f-name','f-color','f-breed','f-year','f-chip','f-passport','f-owner','f-notes']
     .forEach(id => document.getElementById(id).value = '');
   document.getElementById('horse-id').value = '';
+  document.getElementById('photo-img').style.display = 'none';
+  document.getElementById('photo-img').src = '';
+  document.getElementById('photo-placeholder').style.display = 'block';
   document.getElementById('med-list').innerHTML = '<div style="color:#aaa;font-size:.85rem;">Сначала сохраните лошадь</div>';
+  window._pendingPhotoBase64 = null;
+}
+
+function previewPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  // Сжимаем до максимум 800px
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = h * MAX / w; w = MAX; }
+      if (h > MAX) { w = w * MAX / h; h = MAX; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const base64 = canvas.toDataURL('image/jpeg', 0.8);
+      window._pendingPhotoBase64 = base64;
+      document.getElementById('photo-img').src = base64;
+      document.getElementById('photo-img').style.display = 'block';
+      document.getElementById('photo-placeholder').style.display = 'none';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 async function saveHorse() {
@@ -388,10 +443,12 @@ async function saveHorse() {
     chip_number:     document.getElementById('f-chip').value.trim(),
     passport_number: document.getElementById('f-passport').value.trim(),
     owner:           document.getElementById('f-owner').value.trim(),
-    photo_url:       document.getElementById('f-photo').value.trim(),
+    photo_url:       window._pendingPhotoBase64 || document.getElementById('photo-img').src || null,
     notes:           document.getElementById('f-notes').value.trim(),
   };
   if (!body.name) return alert('Введите кличку лошади');
+  // Убираем пустую строку src
+  if (body.photo_url === '') body.photo_url = null;
   const url    = id ? `/api/horses/${id}` : '/api/horses';
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, {
@@ -401,13 +458,13 @@ async function saveHorse() {
   });
   const saved = await res.json();
   if (!id) {
-    // только что создали — обновляем id и показываем кнопки
     currentHorseId = saved.id;
     document.getElementById('horse-id').value = saved.id;
     document.getElementById('btn-delete').style.display = 'inline-block';
     document.getElementById('btn-toggle-med').style.display = 'inline-block';
     document.getElementById('modal-title').textContent = saved.name;
   }
+  window._pendingPhotoBase64 = null;
   loadHorses();
   alert('Сохранено!');
 }
@@ -462,7 +519,6 @@ async function saveMedRecord() {
   const h = await res.json();
   renderMedList(h.medical || []);
   document.getElementById('add-med-form').style.display = 'none';
-  // очистить форму
   ['m-date','m-next','m-by','m-desc'].forEach(id => document.getElementById(id).value = '');
   loadHorses();
 }

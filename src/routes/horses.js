@@ -41,7 +41,7 @@ router.post('/', async (req, res) => {
          passport_number, owner, photo_url, notes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [name, breed, birth_year || null, color, chip_number,
-       passport_number, owner, photo_url, notes]
+       passport_number, owner, photo_url || null, notes]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -59,7 +59,7 @@ router.put('/:id', async (req, res) => {
          photo_url=$8, notes=$9
        WHERE id=$10 RETURNING *`,
       [name, breed, birth_year || null, color, chip_number,
-       passport_number, owner, photo_url, notes, req.params.id]
+       passport_number, owner, photo_url || null, notes, req.params.id]
     );
     res.json(rows[0]);
   } catch (err) {
@@ -95,6 +95,21 @@ router.delete('/:id/medical/:medId', async (req, res) => {
     await req.app.locals.db.query(
       `DELETE FROM horse_medical WHERE id=$1 AND horse_id=$2`,
       [req.params.medId, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Загрузка фото — сохраняем base64 прямо в БД
+router.post('/:id/photo', async (req, res) => {
+  const { photo_base64 } = req.body;
+  if (!photo_base64) return res.status(400).json({ error: 'Нет фото' });
+  try {
+    const { rows } = await req.app.locals.db.query(
+      `UPDATE horses SET photo_url=$1 WHERE id=$2 RETURNING id`,
+      [photo_base64, req.params.id]
     );
     res.json({ success: true });
   } catch (err) {
