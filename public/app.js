@@ -88,18 +88,20 @@ function renderGrid() {
     VENUES.forEach(venue => {
       const slot = document.createElement('div')
       slot.className = 'slot'
-
       const slotBookings = getBookingsForSlot(venue, time)
-      slotBookings.forEach(b => {
-        const card = document.createElement('div')
+        slotBookings.forEach(b => {
+      const card = document.createElement('div')
         card.className = 'booking'
-        card.textContent = `${b.horse_name} · ${b.discipline}`
+        card.innerHTML = `
+          <span>${b.horse_name} · ${b.discipline}</span>
+          <button class="delete-btn" onclick="deleteBooking(${b.id}, event)">✕</button>
+        `
         slot.appendChild(card)
       })
 
-      slot.onclick = () => openModal(venue, time)
-      grid.appendChild(slot)
-    })
+    slot.onclick = () => openModal(venue, time)
+    grid.appendChild(slot)
+  })
   })
 }
 
@@ -186,6 +188,20 @@ document.getElementById('logout-btn').onclick = () => {
   localStorage.removeItem('user')
   window.location.href = '/login.html'
 }
+async function deleteBooking(id, event) {
+  event.stopPropagation()
+  if (!confirm('Удалить эту запись?')) return
 
+  const res = await fetch(`/api/bookings/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+
+  if (res.ok) {
+    loadBookings()
+  } else {
+    alert('Ошибка при удалении')
+  }
+}
 fillTimeSelect()
 loadBookings()
