@@ -646,3 +646,38 @@ body {
     padding: 16px;
   }
 }
+@media (max-width: 768px) {
+  .chat-layout {
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  .chat-sidebar {
+    width: 100%;
+    flex-shrink: 0;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+    max-height: 45vh;
+  }
+
+  .chat-dialogs {
+    max-height: 120px;
+  }
+
+  .chat-main {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .chat-messages {
+    padding: 8px;
+  }
+
+  .chat-input-area {
+    padding: 8px;
+  }
+
+  .message {
+    max-width: 85%;
+  }
+}
