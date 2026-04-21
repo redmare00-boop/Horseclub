@@ -88,10 +88,12 @@ function renderGrid() {
     VENUES.forEach(venue => {
       const slot = document.createElement('div')
       slot.className = 'slot'
+
       const slotBookings = getBookingsForSlot(venue, time)
-        slotBookings.forEach(b => {
-      const card = document.createElement('div')
+      slotBookings.forEach(b => {
+        const card = document.createElement('div')
         card.className = 'booking'
+        card.onclick = (e) => { e.stopPropagation(); openDetails(venue, time) }
         card.innerHTML = `
           <span>${b.horse_name} · ${b.discipline}</span>
           <button class="delete-btn" onclick="deleteBooking(${b.id}, event)">✕</button>
@@ -99,10 +101,49 @@ function renderGrid() {
         slot.appendChild(card)
       })
 
-    slot.onclick = () => openModal(venue, time)
-    grid.appendChild(slot)
+      slot.onclick = () => openDetails(venue, time)
+      grid.appendChild(slot)
+    })
   })
+}
+
+function openDetails(venue, time) {
+  const startM = toMins(time)
+  const endM = startM + 30
+
+  const slotBookings = bookings.filter(b => {
+    if (b.venue !== venue) return false
+    const bStart = toMins(b.start_time.slice(0,5))
+    const bEnd = toMins(b.end_time.slice(0,5))
+    return startM < bEnd && endM > bStart
   })
+
+  document.getElementById('details-title').textContent = `${venue} — ${time}`
+
+  const list = document.getElementById('details-list')
+
+  if (slotBookings.length === 0) {
+    list.innerHTML = '<div class="details-empty">Никого — время свободно</div>'
+  } else {
+    const countText = `${slotBookings.length} ${slotBookings.length === 1 ? 'лошадь' : slotBookings.length < 5 ? 'лошади' : 'лошадей'} на это время`
+    list.innerHTML = `<div class="details-count">${countText}</div>` +
+      slotBookings.map(b => `
+        <div class="details-horse">
+          <div class="details-dot ${b.user_id === user?.id ? 'details-dot-mine' : 'details-dot-other'}"></div>
+          <div>
+            <div class="details-horse-name">${b.horse_name}</div>
+            <div class="details-horse-meta">${b.discipline}</div>
+          </div>
+        </div>
+      `).join('')
+  }
+
+  document.getElementById('details-modal').style.display = 'flex'
+
+  document.getElementById('details-add-btn').onclick = () => {
+    document.getElementById('details-modal').style.display = 'none'
+    openModal(venue, time)
+  }
 }
 
 function fillTimeSelect() {
@@ -143,7 +184,7 @@ async function saveBooking() {
 
   const end_time = addMinutes(time, duration)
 
-const res = await fetch('/api/bookings', {
+  const res = await fetch('/api/bookings', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -161,6 +202,22 @@ const res = await fetch('/api/bookings', {
 
   closeModal()
   loadBookings()
+}
+
+async function deleteBooking(id, event) {
+  event.stopPropagation()
+  if (!confirm('Удалить эту запись?')) return
+
+  const res = await fetch(`/api/bookings/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+
+  if (res.ok) {
+    loadBookings()
+  } else {
+    alert('Ошибка при удалении')
+  }
 }
 
 document.getElementById('prev-day').onclick = () => {
@@ -181,6 +238,14 @@ document.getElementById('modal').onclick = function(e) {
   if (e.target === this) closeModal()
 }
 
+document.getElementById('details-close').onclick = () => {
+  document.getElementById('details-modal').style.display = 'none'
+}
+
+document.getElementById('details-modal').onclick = function(e) {
+  if (e.target === this) this.style.display = 'none'
+}
+
 document.getElementById('user-name').textContent = user ? user.full_name : ''
 
 document.getElementById('logout-btn').onclick = () => {
@@ -188,23 +253,10 @@ document.getElementById('logout-btn').onclick = () => {
   localStorage.removeItem('user')
   window.location.href = '/login.html'
 }
-async function deleteBooking(id, event) {
-  event.stopPropagation()
-  if (!confirm('Удалить эту запись?')) return
 
-  const res = await fetch(`/api/bookings/${id}`, {
-    method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` }
-  })
-
-  if (res.ok) {
-    loadBookings()
-  } else {
-    alert('Ошибка при удалении')
-  }
-}
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js')
 }
+
 fillTimeSelect()
 loadBookings()

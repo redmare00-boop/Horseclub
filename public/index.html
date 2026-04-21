@@ -6,36 +6,35 @@
   <title>График конного клуба</title>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#534AB7">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="theme-color" content="#534AB7">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
 </head>
 <body>
 
 <div class="topbar">
-    <h1>График конного клуба </h1>
-    <div class="date-nav">
-      <button id="prev-day">←</button>
-      <span id="current-date"></span>
-      <button id="next-day">→</button>
-    </div>
-    <div class="user-info">
-      <span id="user-name"></span>
-      <a href="/chat.html" class="chat-link">Чат</a>
-      <button id="logout-btn">Выйти</button>
-    </div>
+  <h1>График конного клуба</h1>
+  <div class="date-nav">
+    <button id="prev-day">←</button>
+    <span id="current-date"></span>
+    <button id="next-day">→</button>
   </div>
+  <div class="user-info">
+    <span id="user-name"></span>
+    <a href="/chat.html" class="chat-link">Чат</a>
+    <button id="logout-btn">Выйти</button>
+  </div>
+</div>
 
-  <div class="schedule-wrap">
-    <div class="schedule-grid" id="schedule-grid">
-    </div>
-  </div>
+<div class="schedule-wrap">
+  <div class="schedule-grid" id="schedule-grid"></div>
+</div>
+
 <div class="modal-bg" id="modal" style="display:none">
   <div class="modal">
     <div class="modal-header">
       <span class="modal-title">Новая запись</span>
       <button class="modal-close" id="modal-close">✕</button>
     </div>
-
     <div class="field">
       <label>Площадка</label>
       <select id="f-venue">
@@ -46,7 +45,6 @@
         <option value="Нижний плац">Нижний плац</option>
       </select>
     </div>
-
     <div class="field-row">
       <div class="field">
         <label>Дата</label>
@@ -57,7 +55,6 @@
         <select id="f-time"></select>
       </div>
     </div>
-
     <div class="field">
       <label>Продолжительность</label>
       <select id="f-dur">
@@ -67,12 +64,10 @@
         <option value="90">90 мин</option>
       </select>
     </div>
-
     <div class="field">
       <label>Лошадь</label>
       <input type="text" id="f-horse" placeholder="Кличка лошади">
     </div>
-
     <div class="field">
       <label>Дисциплина</label>
       <select id="f-disc">
@@ -80,13 +75,24 @@
         <option value="Выездка">Выездка</option>
       </select>
     </div>
-
     <div class="modal-buttons">
       <button id="modal-save">Сохранить</button>
       <button id="modal-cancel">Отмена</button>
     </div>
   </div>
 </div>
-  <script src="app.js"></script>
+
+<div class="modal-bg" id="details-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="details-title">Площадка</span>
+      <button class="modal-close" id="details-close">✕</button>
+    </div>
+    <div id="details-list" style="margin-bottom:16px"></div>
+    <button id="details-add-btn" style="width:100%;padding:9px;background:#534AB7;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer">Добавить свою запись</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>

@@ -706,3 +706,56 @@ body {
     max-width: 85%;
   }
 }
+.details-horse {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.details-horse:last-child {
+  border-bottom: none;
+}
+
+.details-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.details-dot-mine {
+  background: #534AB7;
+}
+
+.details-dot-other {
+  background: #1D9E75;
+}
+
+.details-horse-name {
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+}
+
+.details-horse-meta {
+  font-size: 12px;
+  color: #999;
+}
+
+.details-empty {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  padding: 16px 0;
+}
+
+.details-count {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: #f8f8f8;
+  border-radius: 6px;
+}
