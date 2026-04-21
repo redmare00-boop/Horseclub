@@ -572,3 +572,77 @@ body {
 .chat-link:hover {
   background: #EEEDFE;
 }
+@media (max-width: 768px) {
+  .topbar {
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .topbar h1 {
+    font-size: 14px;
+    flex: 1;
+  }
+
+  .date-nav {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+
+  #current-date {
+    font-size: 13px;
+    min-width: 140px;
+  }
+
+  .user-info {
+    gap: 6px;
+  }
+
+  #user-name {
+    display: none;
+  }
+
+  .chat-link {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  #logout-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .schedule-wrap {
+    padding: 8px;
+  }
+
+  .schedule-grid {
+    min-width: unset;
+  }
+
+  .col-header {
+    font-size: 10px;
+    padding: 6px 2px;
+  }
+
+  .time-cell {
+    font-size: 10px;
+    padding: 0 3px;
+    width: 38px;
+  }
+
+  .slot {
+    height: 32px;
+  }
+
+  .booking {
+    font-size: 10px;
+    padding: 2px 4px;
+  }
+
+  .modal {
+    width: 95vw;
+    padding: 16px;
+  }
+}
