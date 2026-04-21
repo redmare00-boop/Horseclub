@@ -203,5 +203,8 @@ async function deleteBooking(id, event) {
     alert('Ошибка при удалении')
   }
 }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+}
 fillTimeSelect()
 loadBookings()
