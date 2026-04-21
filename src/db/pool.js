@@ -1,11 +1,15 @@
 const { Pool } = require('pg')
 
 console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'есть' : 'нет')
+console.log('PG_URL:', process.env.PG_URL ? 'есть' : 'нет')
+console.log('NODE_ENV:', process.env.NODE_ENV)
+
+const connStr = process.env.DATABASE_URL || process.env.PG_URL
 
 const pool = new Pool(
-  process.env.DATABASE_URL
+  connStr
     ? {
-        connectionString: process.env.DATABASE_URL,
+        connectionString: connStr,
         ssl: { rejectUnauthorized: false }
       }
     : {
