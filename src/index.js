@@ -12,6 +12,7 @@ const pool = require('./db/pool')
 const bookingsRouter = require('./routes/bookings')
 const authRouter = require('./routes/auth')
 const chatRouter = require('./routes/chat')
+const horsesRouter = require('./routes/horses')
 const app = express()
 const server = http.createServer(app)
 const io = new Server(server, {
@@ -27,6 +28,7 @@ app.use(express.static(path.join(__dirname, '../public')))
 app.use('/api/bookings', bookingsRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/chat', chatRouter)
+app.use('/api/horses', horsesRouter)
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'Сервер работает!' })
 })
@@ -68,7 +70,7 @@ io.on('connection', (socket) => {
 })
 
 app.set('io', io)
-
+app.locals.db = pool
 server.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`)
 })
