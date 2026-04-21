@@ -1,7 +1,10 @@
 const express = require('express')
 const cors = require('cors')
 const path = require('path')
-require('dotenv').config()
+
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config()
+}
 
 const pool = require('./db/pool')
 const bookingsRouter = require('./routes/bookings')
@@ -15,6 +18,7 @@ app.use(express.static(path.join(__dirname, '../public')))
 
 app.use('/api/bookings', bookingsRouter)
 app.use('/api/auth', authRouter)
+
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'Сервер работает!' })
 })
