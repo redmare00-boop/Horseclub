@@ -6,6 +6,7 @@ if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config()
 }
 
+console.log('Все переменные:', Object.keys(process.env).join(', '))
 const pool = require('./db/pool')
 const bookingsRouter = require('./routes/bookings')
 const authRouter = require('./routes/auth')
