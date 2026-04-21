@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const pool = require('../db/pool')
+const { requireAuth } = require('../middleware/auth')
 
 router.get('/', async (req, res) => {
   try {
@@ -15,7 +16,7 @@ router.get('/', async (req, res) => {
   }
 })
 
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   try {
     const { horse_name, venue, discipline, booking_date, start_time, end_time } = req.body
 
@@ -43,7 +44,7 @@ router.post('/', async (req, res) => {
   }
 })
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     await pool.query('DELETE FROM bookings WHERE id = $1', [req.params.id])
     res.status(204).send()
