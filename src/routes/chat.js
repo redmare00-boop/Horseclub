@@ -92,7 +92,7 @@ router.post('/messages/:id/pin', requireAuth, async (req, res) => {
     const messageId = parseInt(req.params.id, 10)
     const { pinned } = req.body || {}
     const shouldPin = !!pinned
-    const actorUserId = Number(req.user.id)
+    const actorUserId = parseInt(String(req.user.id), 10)
     if (!Number.isFinite(actorUserId)) {
       return res.status(401).json({ error: 'Необходима авторизация' })
     }
@@ -120,7 +120,7 @@ router.post('/messages/:id/pin', requireAuth, async (req, res) => {
       SET
         is_pinned = $2,
         pinned_at = CASE WHEN $2 THEN NOW() ELSE NULL END,
-        pinned_by = CASE WHEN $2 THEN $3 ELSE NULL END
+        pinned_by = CASE WHEN $2 THEN $3::int ELSE NULL END
       WHERE id = $1
       RETURNING *
       `,
