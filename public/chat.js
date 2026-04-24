@@ -449,13 +449,20 @@ if (menuPin) {
   menuPin.addEventListener('pointerup', runPin)
 }
 if (menuDel) {
+  let inFlight = false
   const runDel = async (e) => {
     if (e) e.preventDefault()
+    if (e?.stopPropagation) e.stopPropagation()
+    if (inFlight) return
     if (!activeMenuMessageId) return
     const msg = currentMessagesById.get(activeMenuMessageId)
     const canDelete = msg && (Number(msg.sender_id) === Number(user.id) || user.role === 'admin')
     if (!canDelete) return
-    if (!confirm('Удалить сообщение?')) return
+    inFlight = true
+    if (!confirm('Удалить сообщение?')) {
+      inFlight = false
+      return
+    }
     menuDel.disabled = true
     const prevText = menuDel.textContent
     menuDel.textContent = '⏳'
@@ -480,12 +487,13 @@ if (menuDel) {
     } finally {
       menuDel.textContent = prevText
       menuDel.disabled = false
+      inFlight = false
     }
   }
+  // Desktop
   menuDel.onclick = runDel
+  // iOS: используем только touchstart, чтобы не получать дубли (touchend/click).
   menuDel.addEventListener('touchstart', runDel, { passive: false })
-  menuDel.addEventListener('touchend', runDel, { passive: false })
-  menuDel.addEventListener('pointerup', runDel)
 }
 
 document.addEventListener('click', (e) => {
