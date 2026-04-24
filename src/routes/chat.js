@@ -3,6 +3,17 @@ const router = express.Router()
 const pool = require('../db/pool')
 const { requireAuth } = require('../middleware/auth')
 
+function canAccessChannelSql() {
+  // user can access general, or is a member
+  return `
+    (c.type = 'general')
+    OR EXISTS (
+      SELECT 1 FROM channel_members cm
+      WHERE cm.channel_id = c.id AND cm.user_id = $2
+    )
+  `
+}
+
 router.get('/channels', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -69,6 +80,59 @@ router.get('/channels/:id/messages', requireAuth, async (req, res) => {
       LIMIT 50
     `, [req.params.id])
     res.json({ data: result.rows })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Закрепить / открепить сообщение
+router.post('/messages/:id/pin', requireAuth, async (req, res) => {
+  const io = req.app.get('io')
+  try {
+    const messageId = parseInt(req.params.id, 10)
+    const { pinned } = req.body || {}
+    const shouldPin = !!pinned
+
+    // Check access: message's channel must be available to current user.
+    const access = await pool.query(
+      `
+      SELECT m.id, m.channel_id, c.type
+      FROM messages m
+      JOIN channels c ON c.id = m.channel_id
+      WHERE m.id = $1 AND (${canAccessChannelSql()})
+      `,
+      [messageId, req.user.id]
+    )
+
+    if (access.rows.length === 0) {
+      return res.status(404).json({ error: 'Сообщение не найдено' })
+    }
+
+    const channelId = access.rows[0].channel_id
+
+    const updated = await pool.query(
+      `
+      UPDATE messages
+      SET
+        is_pinned = $2,
+        pinned_at = CASE WHEN $2 THEN NOW() ELSE NULL END,
+        pinned_by = CASE WHEN $2 THEN $3 ELSE NULL END
+      WHERE id = $1
+      RETURNING *
+      `,
+      [messageId, shouldPin, req.user.id]
+    )
+
+    const row = updated.rows[0]
+    io?.to(`channel:${channelId}`).emit('message:pin', {
+      id: row.id,
+      channel_id: row.channel_id,
+      is_pinned: row.is_pinned,
+      pinned_at: row.pinned_at,
+      pinned_by: row.pinned_by
+    })
+
+    res.json({ data: row })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

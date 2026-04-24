@@ -897,16 +897,86 @@ button.delete-btn:active:not(:disabled) {
   margin-top: 3px;
 }
 
+.message-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+}
+.message-actions button {
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.message-attachments {
+  margin-top: 6px;
+  display: grid;
+  gap: 6px;
+}
+.message-attachments img {
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  background: #fff;
+}
+.message-attachments a {
+  color: #534AB7;
+  text-decoration: underline;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.chat-pinned {
+  border-bottom: 1px solid #e0e0e0;
+  padding: 8px 12px;
+  background: #fffceb;
+  color: #4a3b00;
+  font-size: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.chat-pinned a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .chat-input-area {
   border-top: 1px solid #e0e0e0;
   padding: 10px 14px;
   display: flex;
   gap: 8px;
   align-items: flex-end;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.chat-input-area #attach-btn {
+  width: 44px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #333;
+  border-radius: 6px;
+  flex: 0 0 44px;
+}
+.chat-input-area #attach-btn:hover {
+  background: #f3f3f3;
 }
 
 .chat-input-area textarea {
-  flex: 1;
+  /* iOS Safari: без flex-basis=0 textarea может «распирать» ряд и выталкивать кнопку за экран */
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
   padding: 8px 10px;
   font-size: 13px;
   border: 1px solid #ddd;
@@ -925,6 +995,7 @@ button.delete-btn:active:not(:disabled) {
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .chat-input-area button:hover {
@@ -1072,15 +1143,26 @@ button.delete-btn:active:not(:disabled) {
   }
 
   .chat-input-area button {
-    padding: 8px 10px;
-    font-size: 12px;
+    width: 44px;
+    height: 36px;
+    padding: 0;
+    font-size: 18px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     white-space: nowrap;
-    flex-shrink: 0;
+    flex: 0 0 44px;
   }
 
   .chat-input-area textarea {
+    /* iOS Safari: не даём textarea вытолкнуть кнопку за экран */
+    flex: 1 1 0;
     min-width: 0;
-    flex: 1;
+    width: 0;
+    /* iOS: предотвращает авто-zoom страницы при фокусе */
+    font-size: 16px;
+    line-height: 1.35;
   }
 
   .message {

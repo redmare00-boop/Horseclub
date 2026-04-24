@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Чат — Конный клуб</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -26,8 +26,11 @@
       <button class="chat-back-dialogs" id="back-to-dialogs" type="button" style="display:none">← Чаты</button>
       <div class="chat-main-name" id="chat-title">Выберите чат</div>
     </div>
+    <div class="chat-pinned" id="pinned-bar" style="display:none"></div>
     <div class="chat-messages" id="messages-area"></div>
     <div class="chat-input-area">
+      <input id="file-input" type="file" multiple style="display:none" />
+      <button id="attach-btn" type="button" aria-label="Вложение">📎</button>
       <textarea id="message-input" placeholder="Написать сообщение..." rows="1"></textarea>
       <button id="send-btn">→</button>
     </div>
@@ -35,6 +38,6 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="chat.js"></script>
+<script src="chat.js?v=11"></script>
 </body>
 </html>

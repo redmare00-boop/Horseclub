@@ -10,6 +10,7 @@ const pool = require('./db/pool')
 const bookingsRouter = require('./routes/bookings')
 const authRouter = require('./routes/auth')
 const chatRouter = require('./routes/chat')
+const chatUploadsRouter = require('./routes/chatUploads')
 const horsesRouter = require('./routes/horses')
 const setupRouter = require('./routes/setup')
 const adminRouter = require('./routes/admin')
@@ -26,10 +27,13 @@ const PORT = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json({ limit: '5mb' }))
 app.use(express.static(path.join(__dirname, '../public')))
+// Uploaded chat files (images/docs). For MVP: publicly accessible on local network.
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')))
 
 app.use('/api/bookings', bookingsRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/chat', chatRouter)
+app.use('/api/chat', chatUploadsRouter)
 app.use('/api/horses', horsesRouter)
 app.use('/api/setup', setupRouter)
 app.use('/api/admin/venues', venuesAdmin)
@@ -50,12 +54,12 @@ io.on('connection', (socket) => {
   })
 
   socket.on('message:send', async (data) => {
-    const { channel_id, content, sender_id, sender_name } = data
+    const { channel_id, content, sender_id, sender_name, attachments } = data
     try {
       const result = await pool.query(
-        `INSERT INTO messages (channel_id, sender_id, content)
-         VALUES ($1, $2, $3) RETURNING *`,
-        [channel_id, sender_id, content]
+        `INSERT INTO messages (channel_id, sender_id, content, attachments)
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [channel_id, sender_id, content || '', JSON.stringify(Array.isArray(attachments) ? attachments : [])]
       )
       const message = {
         ...result.rows[0],

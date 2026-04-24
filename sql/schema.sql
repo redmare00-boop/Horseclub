@@ -112,11 +112,21 @@ CREATE TABLE IF NOT EXISTS messages (
   channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
   sender_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   content    TEXT NOT NULL,
+  attachments JSONB NOT NULL DEFAULT '[]',
+  is_pinned  BOOLEAN NOT NULL DEFAULT FALSE,
+  pinned_at  TIMESTAMPTZ,
+  pinned_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS messages_by_channel ON messages (channel_id, created_at);
+
+-- Backward-compatible adds (if table existed earlier)
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS pinned_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
 
 -- Create default "general" channel
 INSERT INTO channels (type, name)
