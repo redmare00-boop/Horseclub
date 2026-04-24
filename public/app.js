@@ -8,6 +8,9 @@ const user = JSON.parse(localStorage.getItem('user') || 'null')
 if (!token || !user) {
   window.location.href = '/login.html'
 }
+if (user?.must_change_password) {
+  window.location.href = '/change-password.html'
+}
 
 let currentDate = new Date()
 let bookings = []
@@ -88,6 +91,17 @@ function renderGrid() {
     VENUES.forEach(venue => {
       const slot = document.createElement('div')
       slot.className = 'slot'
+
+      const addBtn = document.createElement('button')
+      addBtn.type = 'button'
+      addBtn.className = 'slot-add'
+      addBtn.title = 'Добавить запись'
+      addBtn.textContent = '+'
+      addBtn.onclick = (e) => {
+        e.stopPropagation()
+        openModal(venue, time)
+      }
+      slot.appendChild(addBtn)
 
       const slotBookings = getBookingsForSlot(venue, time)
       slotBookings.forEach(b => {
@@ -247,6 +261,10 @@ document.getElementById('details-modal').onclick = function(e) {
 }
 
 document.getElementById('user-name').textContent = user ? user.full_name : ''
+if (user?.role === 'admin') {
+  const link = document.getElementById('admin-users-link')
+  if (link) link.style.display = 'inline-block'
+}
 
 document.getElementById('logout-btn').onclick = () => {
   localStorage.removeItem('token')

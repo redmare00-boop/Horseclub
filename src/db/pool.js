@@ -1,25 +1,26 @@
-const { Pool } = require('pg')
+const pg = require('pg');
+require('dotenv').config();
 
-const RAILWAY_DB = 'postgresql://postgres:iWibibHTZePhXImUhilCUVlRUMNXFogx@shinkansen.proxy.rlwy.net:37332/railway'
+const { Pool } = pg;
 
-function getPool() {
-  const connStr = process.env.DATABASE_URL || process.env.PG_URL || 
-    (process.env.NODE_ENV === 'production' ? RAILWAY_DB : null)
-  
-  return new Pool(
-    connStr
-      ? {
-          connectionString: connStr,
-          ssl: { rejectUnauthorized: false }
-        }
-      : {
-          user: 'postgres',
-          host: 'localhost',
-          database: 'horseclub',
-          password: 'Rapsodia01',
-          port: 5432,
-        }
-  )
+if (!process.env.DATABASE_URL && !process.env.PGHOST) {
+  throw new Error('❌ Нет настроек базы данных. Создай .env файл!');
 }
 
-module.exports = { query: (...args) => getPool().query(...args) }
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+      }
+    : {
+        host: process.env.PGHOST,
+        port: process.env.PGPORT || 5432,
+        database: process.env.PGDATABASE,
+        user: process.env.PGUSER,
+        password: process.env.PGPASSWORD,
+        ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false
+      }
+);
+
+module.exports = { query: (...args) => pool.query(...args) };

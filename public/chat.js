@@ -4,10 +4,21 @@ const user = JSON.parse(localStorage.getItem('user') || 'null')
 if (!token || !user) {
   window.location.href = '/login.html'
 }
+if (user?.must_change_password) {
+  window.location.href = '/change-password.html'
+}
 
 const socket = io()
 let activeChannelId = null
 let channels = []
+
+function setDialogOpen(isOpen) {
+  const layout = document.querySelector('.chat-layout')
+  const backBtn = document.getElementById('back-to-dialogs')
+  if (!layout || !backBtn) return
+  layout.classList.toggle('chat--dialog-open', isOpen)
+  backBtn.style.display = isOpen ? 'inline-flex' : 'none'
+}
 
 socket.on('connect', () => {
   socket.emit('join', user.id)
@@ -29,6 +40,18 @@ async function loadChannels() {
   const json = await res.json()
   channels = json.data || []
   renderDialogs()
+
+  // Open requested direct chat (from schedule) once channels are loaded.
+  const raw = sessionStorage.getItem('open_chat_channel')
+  if (raw) {
+    sessionStorage.removeItem('open_chat_channel')
+    try {
+      const data = JSON.parse(raw)
+      if (data?.id) {
+        openChannel(data.id, data.name || 'Личный чат')
+      }
+    } catch {}
+  }
 }
 
 function renderDialogs() {
@@ -38,10 +61,10 @@ function renderDialogs() {
     const item = document.createElement('div')
     item.className = 'dialog-item' + (ch.id === activeChannelId ? ' active' : '')
     item.innerHTML = `
-      <span class="dialog-name">${ch.name || 'Личный диалог'}</span>
+      <span class="dialog-name">${ch.name || 'Личный чат'}</span>
       ${ch.unread_count > 0 ? `<span class="dialog-unread">${ch.unread_count}</span>` : ''}
     `
-    item.onclick = () => openChannel(ch.id, ch.name || 'Личный диалог')
+    item.onclick = () => openChannel(ch.id, ch.name || 'Личный чат')
     list.appendChild(item)
   })
 }
@@ -50,6 +73,7 @@ async function openChannel(channelId, name) {
   activeChannelId = channelId
   document.getElementById('chat-title').textContent = name
   socket.emit('channel:join', channelId)
+  setDialogOpen(true)
 
   const res = await fetch(`/api/chat/channels/${channelId}/messages`, {
     headers: { 'Authorization': `Bearer ${token}` }
@@ -175,3 +199,11 @@ document.getElementById('user-search').oninput = async function() {
 }
 
 loadChannels()
+
+document.getElementById('back-to-dialogs').onclick = () => {
+  activeChannelId = null
+  document.getElementById('chat-title').textContent = 'Выберите чат'
+  document.getElementById('messages-area').innerHTML = ''
+  setDialogOpen(false)
+  renderDialogs()
+}

@@ -22,7 +22,11 @@ document.getElementById('login-btn').onclick = async () => {
 
   localStorage.setItem('token', json.token)
   localStorage.setItem('user', JSON.stringify(json.user))
-  window.location.href = '/'
+  if (json.user?.must_change_password) {
+    window.location.href = '/change-password.html'
+  } else {
+    window.location.href = '/'
+  }
 }
 
 document.getElementById('password-input').onkeydown = (e) => {

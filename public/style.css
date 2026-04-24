@@ -11,6 +11,60 @@ body {
   color: #333;
 }
 
+/* Кнопки: заметный hover и «вжатие» при :active */
+button,
+input[type="button"],
+input[type="submit"] {
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease,
+    filter 0.15s ease;
+}
+
+button:disabled,
+input[type="button"]:disabled,
+input[type="submit"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+
+button:hover:not(:disabled),
+input[type="button"]:hover:not(:disabled),
+input[type="submit"]:hover:not(:disabled) {
+  box-shadow: 0 2px 10px rgba(30, 30, 45, 0.12);
+  filter: brightness(0.98);
+}
+
+button:active:not(:disabled),
+input[type="button"]:active:not(:disabled),
+input[type="submit"]:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  filter: brightness(0.94);
+}
+
+a.chat-link {
+  display: inline-block;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease, filter 0.15s ease;
+}
+
+a.chat-link:hover {
+  box-shadow: 0 2px 10px rgba(83, 74, 183, 0.22);
+}
+
+a.chat-link:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 1px 4px rgba(83, 74, 183, 0.25);
+  filter: brightness(0.95);
+}
+
 .topbar {
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
@@ -56,6 +110,208 @@ body {
   overflow-x: auto;
 }
 
+.toast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.92);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  max-width: min(92vw, 720px);
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+
+.venues-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.venue-card {
+  display: block;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 14px 14px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease, filter 0.15s ease;
+}
+
+.venue-card:hover {
+  border-color: #cfcaf7;
+  box-shadow: 0 4px 14px rgba(83,74,183,0.12);
+  filter: brightness(0.99);
+}
+
+.venue-card:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 2px 8px rgba(83, 74, 183, 0.15);
+  filter: brightness(0.97);
+}
+
+.venue-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.venue-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #777;
+}
+
+.calendar {
+  user-select: none;
+}
+
+.calendar-head {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.calendar-wday {
+  text-align: center;
+  font-size: 11px;
+  color: #999;
+  padding: 6px 0;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.calendar-day {
+  padding: 10px 0;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.calendar-day:hover {
+  background: #f9f7ff;
+  border-color: #cfcaf7;
+}
+
+.calendar-day--muted {
+  opacity: 0.45;
+}
+
+.calendar-day--active {
+  background: #EEEDFE;
+  border-color: #534AB7;
+  color: #26215C;
+  font-weight: 600;
+}
+
+.day-table {
+  display: grid;
+  grid-template-columns: 1fr;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.day-row {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  border-bottom: 1px solid #f0f0f0;
+  min-height: 42px;
+}
+
+.day-row:last-child {
+  border-bottom: none;
+}
+
+.day-time {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+  font-size: 11px;
+  color: #999;
+  border-right: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.day-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.day-cell:hover {
+  background: #f9f7ff;
+}
+
+.count-pill {
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: #534AB7;
+  color: #fff;
+}
+
+.count-text {
+  font-size: 12px;
+  color: #444;
+}
+
+.count-empty {
+  font-size: 12px;
+  color: #999;
+}
+
+.mini-btn {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  color: #444;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.mini-btn:hover {
+  background: #f5f5f5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mini-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
+.mini-btn-danger {
+  border-color: #f0b4b4;
+  color: #A32D2D;
+}
+
+.mini-btn-danger:hover {
+  background: #FCEBEB;
+  box-shadow: 0 2px 8px rgba(163, 45, 45, 0.12);
+}
+
 .schedule-grid {
   display: grid;
   grid-template-columns: 52px repeat(5, 1fr);
@@ -94,6 +350,34 @@ body {
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
   position: relative;
+}
+
+.slot-add {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.9);
+  color: #534AB7;
+  font-weight: 700;
+  line-height: 16px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+.slot:hover .slot-add {
+  display: inline-flex;
+}
+
+.slot-add:hover {
+  background: #fff;
+  border-color: #cfcaf7;
 }
 
 .slot:hover {
@@ -153,11 +437,22 @@ body {
   font-size: 16px;
   cursor: pointer;
   color: #999;
-  padding: 4px;
+  padding: 6px 8px;
+  line-height: 1;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
-.modal-close:hover {
+button.modal-close:hover:not(:disabled) {
   color: #333;
+  filter: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #f0f0f0;
+}
+
+button.modal-close:active:not(:disabled) {
+  filter: none;
+  transform: scale(0.95);
 }
 
 .field {
@@ -330,8 +625,19 @@ body {
   flex-shrink: 0;
 }
 
-.delete-btn:hover {
+button.delete-btn:hover:not(:disabled) {
   color: #E24B4A;
+  filter: none;
+  box-shadow: none;
+  background: rgba(226, 75, 74, 0.12);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+button.delete-btn:active:not(:disabled) {
+  filter: none;
+  box-shadow: none;
+  transform: scale(0.9);
 }
 .chat-layout {
   display: flex;
@@ -360,10 +666,21 @@ body {
   font-size: 12px;
   color: #534AB7;
   text-decoration: none;
+  display: inline-block;
+  padding: 2px 0;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
 .back-link:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  background: #EEEDFE;
+  box-shadow: 0 1px 6px rgba(83, 74, 183, 0.15);
+}
+
+.back-link:active {
+  transform: translateY(1px) scale(0.99);
+  filter: brightness(0.95);
 }
 
 .chat-sidebar-title {
@@ -406,10 +723,17 @@ body {
   padding: 8px 12px;
   font-size: 13px;
   cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.12s ease, transform 0.1s ease;
 }
 
 .search-result-item:hover {
   background: #f5f5f5;
+}
+
+.search-result-item:active {
+  background: #e8e8e8;
+  transform: scale(0.99);
 }
 
 .chat-dialogs {
@@ -425,10 +749,17 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
 .dialog-item:hover {
   background: #f0f0f0;
+  box-shadow: inset 0 0 0 1px rgba(83, 74, 183, 0.12);
+}
+
+.dialog-item:active {
+  transform: scale(0.99);
+  background: #e8e4fc;
 }
 
 .dialog-item.active {
@@ -462,6 +793,52 @@ body {
   border-bottom: 1px solid #e0e0e0;
   font-size: 14px;
   font-weight: 500;
+}
+
+/* Desktop: channel name is already visible in the left dialog list */
+@media (min-width: 769px) {
+  .chat-main-head {
+    display: none;
+  }
+}
+
+.chat-back-dialogs {
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #534AB7;
+  margin-right: 10px;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.chat-back-dialogs:hover {
+  background: #EEEDFE;
+  border-color: #cfcaf7;
+  box-shadow: 0 2px 8px rgba(83, 74, 183, 0.12);
+}
+
+.chat-back-dialogs:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .chat-main-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .chat-layout.chat--dialog-open .chat-sidebar {
+    display: none;
+  }
+
+  .chat-layout.chat--dialog-open .chat-dialogs {
+    display: none;
+  }
 }
 
 .chat-messages {
@@ -617,6 +994,10 @@ body {
     padding: 8px;
   }
 
+  .venues-list {
+    grid-template-columns: 1fr;
+  }
+
   .schedule-grid {
     min-width: unset;
   }
@@ -758,4 +1139,61 @@ body {
   padding: 6px 10px;
   background: #f8f8f8;
   border-radius: 6px;
+}
+
+/* Админ — площадки: основные действия нейтральны, «живые» и синие только при несохранённых правках */
+#v-add.admin-venues-create {
+  width: 100%;
+  padding: 9px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+#venues-list .btn-save.admin-venues-save {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+#v-add,
+#venues-list .btn-save {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.1s ease;
+  border: 1px solid #d5d5d5 !important;
+  background: #ececec !important;
+  color: #777 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  cursor: default;
+  pointer-events: none;
+}
+
+#v-add.admin-venues-btn--ready,
+#venues-list .btn-save.admin-venues-btn--ready {
+  pointer-events: auto;
+  cursor: pointer;
+  background: #534AB7 !important;
+  color: #fff !important;
+  border-color: #534AB7 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  filter: none !important;
+}
+
+#v-add.admin-venues-btn--ready:hover,
+#venues-list .btn-save.admin-venues-btn--ready:hover {
+  background: #3c3489 !important;
+  box-shadow: 0 2px 10px rgba(83, 74, 183, 0.35) !important;
+  filter: none !important;
+}
+
+#v-add.admin-venues-btn--ready:active,
+#venues-list .btn-save.admin-venues-btn--ready:active {
+  transform: translateY(1px) scale(0.99);
+  filter: none !important;
 }

@@ -4,15 +4,17 @@ const path = require('path')
 const http = require('http')
 const { Server } = require('socket.io')
 
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config()
-}
+require('./config')
 
 const pool = require('./db/pool')
 const bookingsRouter = require('./routes/bookings')
 const authRouter = require('./routes/auth')
 const chatRouter = require('./routes/chat')
 const horsesRouter = require('./routes/horses')
+const setupRouter = require('./routes/setup')
+const adminRouter = require('./routes/admin')
+const invitesRouter = require('./routes/invites')
+const { publicRouter: venuesPublic, adminRouter: venuesAdmin } = require('./routes/venues')
 const app = express()
 const server = http.createServer(app)
 const io = new Server(server, {
@@ -29,6 +31,11 @@ app.use('/api/bookings', bookingsRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/chat', chatRouter)
 app.use('/api/horses', horsesRouter)
+app.use('/api/setup', setupRouter)
+app.use('/api/admin/venues', venuesAdmin)
+app.use('/api/admin', adminRouter)
+app.use('/api/venues', venuesPublic)
+app.use('/api/invites', invitesRouter)
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'Сервер работает!' })
 })

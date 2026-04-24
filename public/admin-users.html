@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Пользователи — Horseclub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="topbar">
+    <h1>Пользователи</h1>
+    <div class="user-info">
+      <a href="/" class="chat-link">← Расписание</a>
+      <a href="/admin-venues.html" class="chat-link">Площадки</a>
+      <span id="user-name"></span>
+      <button id="logout-btn">Выйти</button>
+    </div>
+  </div>
+
+  <div class="schedule-wrap" style="max-width:720px;margin:0 auto">
+    <div class="login-card" style="width:100%">
+      <h2 style="margin-bottom:8px">Создать пользователя</h2>
+      <p class="login-sub">Регистрация закрыта, поэтому аккаунты создаёт администратор</p>
+
+      <div id="err" class="login-error" style="display:none"></div>
+      <div id="ok" class="login-success" style="display:none"></div>
+      <div id="invite-result" style="display:none;margin-bottom:14px"></div>
+
+      <div class="field">
+        <label>Имя и фамилия</label>
+        <input id="full_name" type="text" placeholder="Иванова Мария">
+      </div>
+
+      <div class="field">
+        <label>Логин</label>
+        <input id="login" type="text" placeholder="maria">
+      </div>
+
+      <div class="field">
+        <label>Пароль</label>
+        <input id="password" type="password" placeholder="минимум 6 символов">
+      </div>
+
+      <div class="field" style="display:flex;align-items:center;gap:8px">
+        <input id="invite" type="checkbox" style="width:auto">
+        <label style="margin:0;font-weight:500;color:#333">Создать инвайт‑ссылку (без пароля)</label>
+      </div>
+
+      <div class="field">
+        <label>Роль</label>
+        <select id="role">
+          <option value="user" selected>Пользователь</option>
+          <option value="admin">Администратор</option>
+        </select>
+      </div>
+
+      <button id="create-btn">Создать</button>
+    </div>
+
+    <div class="login-card" style="width:100%;margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2 style="margin-bottom:8px">Список пользователей</h2>
+        <button id="refresh-btn" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">Обновить</button>
+      </div>
+      <div id="users-list" style="font-size:13px;color:#666"></div>
+    </div>
+
+    <div class="login-card" style="width:100%;margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2 style="margin-bottom:8px">Инвайты</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select id="invites-filter" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">
+            <option value="active" selected>Активные</option>
+            <option value="all">Все</option>
+          </select>
+          <button id="invites-refresh-btn" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">Обновить</button>
+        </div>
+      </div>
+      <div class="login-sub" style="margin-bottom:12px">Здесь видны все созданные приглашения. Можно отменить только активные.</div>
+      <div id="invites-list" style="font-size:13px;color:#666"></div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="reset-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Сброс пароля</span>
+        <button class="modal-close" id="reset-close">✕</button>
+      </div>
+      <div class="field">
+        <label>Новый пароль</label>
+        <input type="password" id="reset-password" placeholder="минимум 6 символов">
+      </div>
+      <div class="modal-buttons">
+        <button id="reset-save">Сохранить</button>
+        <button id="reset-cancel">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin-users.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Приглашение — Horseclub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <h2>Приглашение</h2>
+      <p class="login-sub" id="subtitle">Проверяем ссылку...</p>
+
+      <div id="err" class="login-error" style="display:none"></div>
+      <div id="ok" class="login-success" style="display:none"></div>
+
+      <div id="form" style="display:none">
+        <div class="field">
+          <label>Логин</label>
+          <input type="text" id="login" disabled>
+        </div>
+        <div class="field">
+          <label>Имя</label>
+          <input type="text" id="full_name" disabled>
+        </div>
+        <div class="field">
+          <label>Придумайте пароль</label>
+          <input type="password" id="password" placeholder="минимум 6 символов">
+        </div>
+
+        <button id="accept-btn">Создать аккаунт</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="invite.js"></script>
+</body>
+</html>
