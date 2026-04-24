@@ -116,10 +116,17 @@ router.delete('/channels/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Чат не найден' })
     }
 
-    // For MVP: hard delete channel (members/messages cascade). This removes chat for both participants.
+    // Hard delete with explicit cleanup (works even if FK constraints were created without ON DELETE CASCADE).
+    await pool.query('BEGIN')
+    await pool.query('DELETE FROM messages WHERE channel_id = $1', [channelId])
+    await pool.query('DELETE FROM channel_members WHERE channel_id = $1', [channelId])
     await pool.query(`DELETE FROM channels WHERE id = $1 AND type = 'direct'`, [channelId])
+    await pool.query('COMMIT')
     res.status(204).send()
   } catch (err) {
+    try {
+      await pool.query('ROLLBACK')
+    } catch {}
     res.status(500).json({ error: err.message })
   }
 })

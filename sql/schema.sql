@@ -122,6 +122,17 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS messages_by_channel ON messages (channel_id, created_at);
 
+-- Ensure FK constraints have ON DELETE CASCADE (older DBs may have been created without it)
+ALTER TABLE channel_members DROP CONSTRAINT IF EXISTS channel_members_channel_id_fkey;
+ALTER TABLE channel_members
+  ADD CONSTRAINT channel_members_channel_id_fkey
+  FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE;
+
+ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_channel_id_fkey;
+ALTER TABLE messages
+  ADD CONSTRAINT messages_channel_id_fkey
+  FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE;
+
 -- Backward-compatible adds (if table existed earlier)
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE;
