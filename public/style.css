@@ -1035,6 +1035,12 @@ button.delete-btn:active:not(:disabled) {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+
+.msg-menu,
+.msg-menu * {
+  -webkit-user-select: none;
+  user-select: none;
+}
 .msg-menu #msg-menu-pin {
   border-color: #534AB7;
   color: #534AB7;

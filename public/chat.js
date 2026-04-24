@@ -16,6 +16,7 @@ let uploadInProgress = false
 const currentMessagesById = new Map()
 let activeMenuMessageId = null
 let activeMenuChannelId = null
+let activeForwardMessageId = null
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -67,8 +68,9 @@ function closeMsgMenu() {
 function openMsgMenu(messageId) {
   const menu = document.getElementById('msg-menu')
   const pinBtn = document.getElementById('msg-menu-pin')
+  const fwdBtn = document.getElementById('msg-menu-fwd')
   const delBtn = document.getElementById('msg-menu-del')
-  if (!menu || !pinBtn || !delBtn) return
+  if (!menu || !pinBtn || !fwdBtn || !delBtn) return
 
   activeMenuMessageId = messageId
   const msg = currentMessagesById.get(messageId)
@@ -100,6 +102,70 @@ function openDialogMenu(channelId) {
   if (!menu) return
   activeMenuChannelId = channelId
   menu.style.display = 'flex'
+}
+
+function closeForwardMenu() {
+  const menu = document.getElementById('forward-menu')
+  if (!menu) return
+  menu.style.display = 'none'
+  activeForwardMessageId = null
+}
+
+function openForwardMenu(messageId) {
+  const menu = document.getElementById('forward-menu')
+  const list = document.getElementById('forward-menu-list')
+  if (!menu || !list) return
+  activeForwardMessageId = messageId
+
+  list.innerHTML = (channels || [])
+    .map((ch) => {
+      const title = escapeHtml(ch.name || (ch.type === 'general' ? 'Общий чат' : 'Личный чат'))
+      return `<button type="button" class="fwd-to" data-id="${ch.id}" style="flex:unset;text-align:left">${title}</button>`
+    })
+    .join('')
+
+  list.querySelectorAll('.fwd-to').forEach((btn) => {
+    const handler = (e) => {
+      e.preventDefault()
+      forwardTo(Number(btn.getAttribute('data-id')))
+    }
+    btn.onclick = handler
+    btn.addEventListener('touchstart', handler, { passive: false })
+  })
+
+  menu.style.display = 'flex'
+}
+
+function forwardPayload(original) {
+  const atts = Array.isArray(original?.attachments) ? original.attachments : []
+  const header = original?.sender_name ? `↪ ${original.sender_name}: ` : '↪ '
+  const text = (original?.content || '').trim()
+  return { content: (header + text).trim(), attachments: atts }
+}
+
+let forwardInFlight = false
+function forwardTo(targetChannelId) {
+  if (forwardInFlight) return
+  if (!activeForwardMessageId || !Number.isFinite(targetChannelId)) return
+  const msg = currentMessagesById.get(activeForwardMessageId)
+  if (!msg) return
+  forwardInFlight = true
+
+  const payload = forwardPayload(msg)
+  socket.emit('message:send', {
+    channel_id: targetChannelId,
+    content: payload.content,
+    sender_id: user.id,
+    sender_name: user.full_name,
+    attachments: payload.attachments
+  })
+
+  closeForwardMenu()
+  closeMsgMenu()
+  setTimeout(() => {
+    forwardInFlight = false
+    loadChannels()
+  }, 200)
 }
 
 socket.on('connect', () => {
@@ -183,6 +249,7 @@ async function openChannel(channelId, name) {
   renderPinnedBar(messages)
   closeMsgMenu()
   closeDialogMenu()
+  closeForwardMenu()
 }
 
 function appendMessage(m) {
@@ -422,6 +489,7 @@ if (messagesArea) {
 
 const menuCancel = document.getElementById('msg-menu-cancel')
 const menuPin = document.getElementById('msg-menu-pin')
+const menuFwd = document.getElementById('msg-menu-fwd')
 const menuDel = document.getElementById('msg-menu-del')
 if (menuCancel) {
   menuCancel.onclick = closeMsgMenu
@@ -447,6 +515,18 @@ if (menuPin) {
   menuPin.addEventListener('touchstart', runPin, { passive: false })
   menuPin.addEventListener('touchend', runPin, { passive: false })
   menuPin.addEventListener('pointerup', runPin)
+}
+if (menuFwd) {
+  const run = (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation?.()
+    }
+    if (!activeMenuMessageId) return
+    openForwardMenu(activeMenuMessageId)
+  }
+  menuFwd.onclick = run
+  menuFwd.addEventListener('touchstart', run, { passive: false })
 }
 if (menuDel) {
   let inFlight = false
@@ -508,6 +588,13 @@ document.addEventListener('click', (e) => {
   if (!menu || menu.style.display === 'none') return
   if (menu.contains(e.target)) return
   closeDialogMenu()
+})
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('forward-menu')
+  if (!menu || menu.style.display === 'none') return
+  if (menu.contains(e.target)) return
+  closeForwardMenu()
 })
 
 updateAttachButton()
@@ -629,6 +716,19 @@ if (dialogMenuDel) {
   dialogMenuDel.onclick = run
   // iOS: используем только touchstart, чтобы не получать дубли (touchend/click).
   dialogMenuDel.addEventListener('touchstart', run, { passive: false })
+}
+
+const forwardCancel = document.getElementById('forward-menu-cancel')
+if (forwardCancel) {
+  forwardCancel.onclick = closeForwardMenu
+  forwardCancel.addEventListener(
+    'touchstart',
+    (e) => {
+      e.preventDefault()
+      closeForwardMenu()
+    },
+    { passive: false }
+  )
 }
 
 document.getElementById('message-input').onkeydown = (e) => {

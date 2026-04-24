@@ -42,6 +42,7 @@
 
 <div id="msg-menu" class="msg-menu" style="display:none">
   <button type="button" id="msg-menu-pin">📌</button>
+  <button type="button" id="msg-menu-fwd">↪ Переслать</button>
   <button type="button" id="msg-menu-del" style="display:none">🗑 Удалить</button>
   <button type="button" id="msg-menu-cancel">Отмена</button>
 </div>
@@ -51,7 +52,13 @@
   <button type="button" id="dialog-menu-cancel">Отмена</button>
 </div>
 
+<div id="forward-menu" class="msg-menu" style="display:none; flex-direction:column; gap:10px">
+  <div style="font-size:13px;font-weight:500">Переслать в…</div>
+  <div id="forward-menu-list" style="display:flex;flex-direction:column;gap:8px;max-height:40vh;overflow:auto"></div>
+  <button type="button" id="forward-menu-cancel">Отмена</button>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
-<script src="chat.js?v=24"></script>
+<script src="chat.js?v=25"></script>
 </body>
 </html>
