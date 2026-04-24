@@ -569,7 +569,7 @@ loadChannels()
 
 document.getElementById('back-to-dialogs').onclick = () => {
   activeChannelId = null
-  document.getElementById('chat-title').textContent = 'Выберите чат'
+  document.getElementById('chat-title').textContent = ''
   document.getElementById('messages-area').innerHTML = ''
   setDialogOpen(false)
   renderDialogs()

@@ -1173,8 +1173,9 @@ button.delete-btn:active:not(:disabled) {
     border-bottom: 1px solid #e0e0e0;
   }
 
+  /* На телефоне список диалогов должен быть “как в мессенджерах” — без странного ограничения 80px */
   .chat-dialogs {
-    max-height: 80px;
+    max-height: none;
     overflow-y: auto;
   }
 
