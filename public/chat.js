@@ -496,37 +496,60 @@ document.getElementById('user-search').oninput = async function() {
   }
 
   searchTimeout = setTimeout(async () => {
-    const res = await fetch(`/api/chat/users?search=${q}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    const json = await res.json()
-    const users = json.data || []
+    await fetchAndShowUsers(q)
+  }, 250)
+}
 
-    results.innerHTML = users.map(u =>
-      `<div class="search-result-item" data-id="${u.id}" data-name="${u.full_name}">${u.full_name}</div>`
-    ).join('')
+async function fetchAndShowUsers(query) {
+  const results = document.getElementById('search-results')
+  const q = (query ?? '').trim()
+  const res = await fetch(`/api/chat/users?search=${encodeURIComponent(q)}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  const json = await res.json().catch(() => ({}))
+  const users = json.data || []
 
-    results.classList.toggle('show', users.length > 0)
+  results.innerHTML = users
+    .map((u) => `<div class="search-result-item" data-id="${u.id}" data-name="${escapeHtml(u.full_name)}">${escapeHtml(u.full_name)}</div>`)
+    .join('')
 
-    results.querySelectorAll('.search-result-item').forEach(item => {
-      item.onclick = async () => {
-        results.classList.remove('show')
-        document.getElementById('user-search').value = ''
+  results.classList.toggle('show', users.length > 0)
 
-        const res = await fetch('/api/chat/channels', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ user_id: parseInt(item.dataset.id) })
-        })
-        const json = await res.json()
-        await loadChannels()
-        openChannel(json.data.id, item.dataset.name)
-      }
-    })
-  }, 300)
+  results.querySelectorAll('.search-result-item').forEach((item) => {
+    item.onclick = async () => {
+      results.classList.remove('show')
+      document.getElementById('user-search').value = ''
+
+      const res = await fetch('/api/chat/channels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ user_id: parseInt(item.dataset.id) })
+      })
+      const json = await res.json()
+      await loadChannels()
+      openChannel(json.data.id, item.dataset.name)
+    }
+  })
+}
+
+const plusBtn = document.getElementById('open-user-picker')
+if (plusBtn) {
+  plusBtn.onclick = async () => {
+    const input = document.getElementById('user-search')
+    input.value = ''
+    input.focus()
+    await fetchAndShowUsers('')
+  }
+  plusBtn.addEventListener('touchend', async (e) => {
+    e.preventDefault()
+    const input = document.getElementById('user-search')
+    input.value = ''
+    input.focus()
+    await fetchAndShowUsers('')
+  })
 }
 
 loadChannels()

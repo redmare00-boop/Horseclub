@@ -214,6 +214,8 @@ router.get('/users', requireAuth, async (req, res) => {
     const result = await pool.query(`
       SELECT id, full_name FROM users
       WHERE full_name ILIKE $1 AND id != $2
+      ORDER BY full_name
+      LIMIT 50
     `, [`%${search || ''}%`, req.user.id])
     res.json({ data: result.rows })
   } catch (err) {

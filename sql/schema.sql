@@ -135,6 +135,11 @@ WHERE NOT EXISTS (
   SELECT 1 FROM channels WHERE type = 'general'
 );
 
+-- Ensure the general channel has the expected display name
+UPDATE channels
+SET name = 'Общий чат'
+WHERE type = 'general' AND (name IS NULL OR btrim(name) = '' OR name ILIKE '%klub%');
+
 -- Legacy: таблица bookings могла существовать без venue_id
 ALTER TABLE bookings
   ADD COLUMN IF NOT EXISTS venue_id INTEGER REFERENCES venues(id) ON DELETE SET NULL;

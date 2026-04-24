@@ -12,7 +12,10 @@
   <div class="chat-sidebar">
     <div class="chat-sidebar-head">
       <a href="/" class="back-link">← Расписание</a>
-      <span class="chat-sidebar-title">Сообщения</span>
+      <div class="chat-sidebar-title-row">
+        <span class="chat-sidebar-title">Сообщения</span>
+        <button type="button" id="open-user-picker" class="chat-plus" aria-label="Новый чат">+</button>
+      </div>
     </div>
     <div class="chat-search">
       <input type="text" id="user-search" placeholder="Найти пользователя...">
@@ -44,6 +47,6 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="chat.js?v=17"></script>
+<script src="chat.js?v=18"></script>
 </body>
 </html>

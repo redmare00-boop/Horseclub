@@ -688,6 +688,31 @@ button.delete-btn:active:not(:disabled) {
   font-weight: 500;
 }
 
+.chat-sidebar-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chat-plus {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #fff;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-plus:hover {
+  background: #f3f3f3;
+}
+
 .chat-search {
   padding: 8px 10px;
   border-bottom: 1px solid #e0e0e0;
