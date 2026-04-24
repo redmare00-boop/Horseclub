@@ -250,7 +250,20 @@ async function togglePin(messageId, pinned) {
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
     alert(json.error || 'Не удалось закрепить сообщение')
+    return
   }
+
+  // Optimistic UI update even if socket event is delayed/missed
+  const row = json.data
+  if (row?.id) {
+    const prev = currentMessagesById.get(row.id) || { id: row.id, channel_id: row.channel_id }
+    const next = { ...prev, ...row }
+    currentMessagesById.set(row.id, next)
+    const msgEl = document.getElementById(`m-${row.id}`)
+    if (msgEl) msgEl.setAttribute('data-pinned', row.is_pinned ? '1' : '0')
+    renderPinnedBarFromCache()
+  }
+  closeMsgMenu()
 }
 
 socket.on('message:pin', (payload) => {
@@ -305,8 +318,6 @@ if (attachBtn && fileInput) {
 
 // Context menu (ПКМ) and long-press (mobile) for message actions (pin/unpin)
 const messagesArea = document.getElementById('messages-area')
-let longPressTimer = null
-let longPressTargetId = null
 
 function closestMessageId(target) {
   const el = target?.closest?.('.message')
@@ -323,24 +334,44 @@ if (messagesArea) {
     openMsgMenu(id)
   })
 
-  messagesArea.addEventListener('touchstart', (e) => {
-    const touch = e.touches?.[0]
-    const id = closestMessageId(e.target)
-    if (!touch || !id) return
-    longPressTargetId = id
-    clearTimeout(longPressTimer)
-    longPressTimer = setTimeout(() => {
-      openMsgMenu(id)
-    }, 450)
-  }, { passive: true })
+  // iOS Chrome: contextmenu почти всегда перехватывается браузером.
+  // Поэтому открываем меню по долгому нажатию (long press).
+  let lpTimer = null
+  let lpFired = false
+  const LP_MS = 450
 
-  ;['touchend', 'touchcancel', 'touchmove'].forEach((evt) => {
-    messagesArea.addEventListener(evt, () => {
-      clearTimeout(longPressTimer)
-      longPressTimer = null
-      longPressTargetId = null
-    }, { passive: true })
-  })
+  function clearLp() {
+    if (lpTimer) clearTimeout(lpTimer)
+    lpTimer = null
+    lpFired = false
+  }
+
+  messagesArea.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches?.length !== 1) return
+      const id = closestMessageId(e.target)
+      if (!id) return
+      clearLp()
+      lpTimer = setTimeout(() => {
+        lpFired = true
+        openMsgMenu(id)
+      }, LP_MS)
+    },
+    { passive: true }
+  )
+
+  // Если long press сработал — гасим последующие «клики» и т.п.
+  messagesArea.addEventListener(
+    'touchend',
+    (e) => {
+      if (lpFired) e.preventDefault()
+      clearLp()
+    },
+    { passive: false }
+  )
+  messagesArea.addEventListener('touchcancel', clearLp, { passive: true })
+  messagesArea.addEventListener('touchmove', clearLp, { passive: true })
 }
 
 const menuCancel = document.getElementById('msg-menu-cancel')

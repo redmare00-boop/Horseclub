@@ -879,6 +879,16 @@ button.delete-btn:active:not(:disabled) {
   word-break: break-word;
 }
 
+@media (max-width: 768px) {
+  /* iOS Chrome/Safari: отключаем нативное меню/лупу на долгом тапе по сообщению,
+     чтобы работало наше меню действий */
+  .message-bubble {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 .message.mine .message-bubble {
   background: #EEEDFE;
   color: #26215C;
