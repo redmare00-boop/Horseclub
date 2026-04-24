@@ -785,6 +785,16 @@ button.delete-btn:active:not(:disabled) {
   transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
+@media (max-width: 768px) {
+  /* iOS: при долгом тапе по диалогу не нужно выделение текста */
+  .dialog-item,
+  .dialog-item * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 .dialog-item:hover {
   background: #f0f0f0;
   box-shadow: inset 0 0 0 1px rgba(83, 74, 183, 0.12);
