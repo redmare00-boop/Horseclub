@@ -66,12 +66,16 @@ function closeMsgMenu() {
 function openMsgMenu(messageId) {
   const menu = document.getElementById('msg-menu')
   const pinBtn = document.getElementById('msg-menu-pin')
-  if (!menu || !pinBtn) return
+  const delBtn = document.getElementById('msg-menu-del')
+  if (!menu || !pinBtn || !delBtn) return
 
   activeMenuMessageId = messageId
   const msg = currentMessagesById.get(messageId)
   const pinned = !!msg?.is_pinned
   pinBtn.textContent = pinned ? '📌 Открепить' : '📌 Закрепить'
+
+  const canDelete = msg && (Number(msg.sender_id) === Number(user.id) || user.role === 'admin')
+  delBtn.style.display = canDelete ? 'inline-flex' : 'none'
   menu.style.display = 'flex'
 }
 
@@ -285,6 +289,15 @@ socket.on('message:pin', (payload) => {
   closeMsgMenu()
 })
 
+socket.on('message:delete', (payload) => {
+  if (!payload || payload.channel_id !== activeChannelId) return
+  currentMessagesById.delete(payload.id)
+  const el = document.getElementById(`m-${payload.id}`)
+  if (el) el.remove()
+  renderPinnedBarFromCache()
+  closeMsgMenu()
+})
+
 const fileInput = document.getElementById('file-input')
 const attachBtn = document.getElementById('attach-btn')
 if (attachBtn && fileInput) {
@@ -384,6 +397,7 @@ if (messagesArea) {
 
 const menuCancel = document.getElementById('msg-menu-cancel')
 const menuPin = document.getElementById('msg-menu-pin')
+const menuDel = document.getElementById('msg-menu-del')
 if (menuCancel) {
   menuCancel.onclick = closeMsgMenu
   menuCancel.addEventListener('touchend', (e) => {
@@ -408,6 +422,45 @@ if (menuPin) {
   menuPin.addEventListener('touchstart', runPin, { passive: false })
   menuPin.addEventListener('touchend', runPin, { passive: false })
   menuPin.addEventListener('pointerup', runPin)
+}
+if (menuDel) {
+  const runDel = async (e) => {
+    if (e) e.preventDefault()
+    if (!activeMenuMessageId) return
+    const msg = currentMessagesById.get(activeMenuMessageId)
+    const canDelete = msg && (Number(msg.sender_id) === Number(user.id) || user.role === 'admin')
+    if (!canDelete) return
+    if (!confirm('Удалить сообщение?')) return
+    menuDel.disabled = true
+    const prevText = menuDel.textContent
+    menuDel.textContent = '⏳'
+    try {
+      const res = await fetch(`/api/chat/messages/${activeMenuMessageId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(json.error || `Не удалось удалить (HTTP ${res.status})`)
+        return
+      }
+      // optimistic UI update even if socket is delayed
+      currentMessagesById.delete(activeMenuMessageId)
+      const el = document.getElementById(`m-${activeMenuMessageId}`)
+      if (el) el.remove()
+      renderPinnedBarFromCache()
+      closeMsgMenu()
+    } catch {
+      alert('Не удалось удалить (сеть)')
+    } finally {
+      menuDel.textContent = prevText
+      menuDel.disabled = false
+    }
+  }
+  menuDel.onclick = runDel
+  menuDel.addEventListener('touchstart', runDel, { passive: false })
+  menuDel.addEventListener('touchend', runDel, { passive: false })
+  menuDel.addEventListener('pointerup', runDel)
 }
 
 document.addEventListener('click', (e) => {

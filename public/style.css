@@ -996,6 +996,10 @@ button.delete-btn:active:not(:disabled) {
   border-color: #534AB7;
   color: #534AB7;
 }
+.msg-menu #msg-menu-del {
+  border-color: #d33;
+  color: #d33;
+}
 
 .chat-input-area textarea {
   /* iOS Safari: без flex-basis=0 textarea может «распирать» ряд и выталкивать кнопку за экран */
