@@ -29,7 +29,7 @@
     <div class="chat-pinned" id="pinned-bar" style="display:none"></div>
     <div class="chat-messages" id="messages-area"></div>
     <div class="chat-input-area">
-      <input id="file-input" type="file" multiple style="display:none" />
+      <input id="file-input" type="file" multiple style="display:none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.zip" />
       <button id="attach-btn" type="button" aria-label="Вложение">📎</button>
       <textarea id="message-input" placeholder="Написать сообщение..." rows="1"></textarea>
       <button id="send-btn">→</button>
@@ -37,7 +37,12 @@
   </div>
 </div>
 
+<div id="msg-menu" class="msg-menu" style="display:none">
+  <button type="button" id="msg-menu-pin">📌</button>
+  <button type="button" id="msg-menu-cancel">Отмена</button>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
-<script src="chat.js?v=11"></script>
+<script src="chat.js?v=12"></script>
 </body>
 </html>

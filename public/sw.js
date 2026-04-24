@@ -1,4 +1,4 @@
-const CACHE_NAME = 'horseclub-v10'
+const CACHE_NAME = 'horseclub-v11'
 const URLS_TO_CACHE = [
   '/',
   '/index.html',

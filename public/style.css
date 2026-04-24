@@ -897,21 +897,6 @@ button.delete-btn:active:not(:disabled) {
   margin-top: 3px;
 }
 
-.message-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 4px;
-}
-.message-actions button {
-  border: 1px solid #ddd;
-  background: #fff;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 11px;
-  cursor: pointer;
-}
-
 .message-attachments {
   margin-top: 6px;
   display: grid;
@@ -970,6 +955,33 @@ button.delete-btn:active:not(:disabled) {
 }
 .chat-input-area #attach-btn:hover {
   background: #f3f3f3;
+}
+
+.msg-menu {
+  position: fixed;
+  z-index: 9999;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  padding: 10px;
+  display: flex;
+  gap: 8px;
+}
+.msg-menu button {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  background: #fff;
+  font-size: 14px;
+}
+.msg-menu #msg-menu-pin {
+  border-color: #534AB7;
+  color: #534AB7;
 }
 
 .chat-input-area textarea {

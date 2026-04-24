@@ -12,6 +12,9 @@ const socket = io()
 let activeChannelId = null
 let channels = []
 let pendingAttachments = []
+let uploadInProgress = false
+const currentMessagesById = new Map()
+let activeMenuMessageId = null
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -39,6 +42,37 @@ function renderPinnedBar(messages) {
   const text = last.content ? last.content : (last.attachments?.length ? `Вложение: ${last.attachments[0].name || 'файл'}` : 'Сообщение')
   bar.style.display = 'flex'
   bar.innerHTML = `📌 <span style="font-weight:500">Закреплено:</span> <a href="#m-${last.id}">${escapeHtml(text).slice(0, 80)}</a>`
+}
+
+function renderPinnedBarFromCache() {
+  renderPinnedBar(Array.from(currentMessagesById.values()))
+}
+
+function updateAttachButton() {
+  const btn = document.getElementById('attach-btn')
+  if (!btn) return
+  const count = pendingAttachments.length
+  btn.textContent = uploadInProgress ? '⏳' : (count > 0 ? `📎${count}` : '📎')
+  btn.disabled = uploadInProgress
+}
+
+function closeMsgMenu() {
+  const menu = document.getElementById('msg-menu')
+  if (!menu) return
+  menu.style.display = 'none'
+  activeMenuMessageId = null
+}
+
+function openMsgMenu(messageId) {
+  const menu = document.getElementById('msg-menu')
+  const pinBtn = document.getElementById('msg-menu-pin')
+  if (!menu || !pinBtn) return
+
+  activeMenuMessageId = messageId
+  const msg = currentMessagesById.get(messageId)
+  const pinned = !!msg?.is_pinned
+  pinBtn.textContent = pinned ? '📌 Открепить' : '📌 Закрепить'
+  menu.style.display = 'flex'
 }
 
 function setDialogOpen(isOpen) {
@@ -109,6 +143,8 @@ async function openChannel(channelId, name) {
   })
   const json = await res.json()
   const messages = json.data || []
+  currentMessagesById.clear()
+  messages.forEach((m) => currentMessagesById.set(m.id, m))
 
   const area = document.getElementById('messages-area')
   area.innerHTML = ''
@@ -123,12 +159,14 @@ async function openChannel(channelId, name) {
   markAsRead(channelId)
   renderDialogs()
   renderPinnedBar(messages)
+  closeMsgMenu()
 }
 
 function appendMessage(m) {
   const area = document.getElementById('messages-area')
   const empty = area.querySelector('.chat-empty')
   if (empty) empty.remove()
+  if (m?.id) currentMessagesById.set(m.id, m)
 
   const isMine = m.sender_id === user.id
   const time = new Date(m.created_at).toLocaleTimeString('ru-RU', {
@@ -138,6 +176,8 @@ function appendMessage(m) {
   const div = document.createElement('div')
   div.className = 'message ' + (isMine ? 'mine' : 'other')
   div.id = `m-${m.id}`
+  div.setAttribute('data-id', String(m.id))
+  div.setAttribute('data-pinned', m.is_pinned ? '1' : '0')
 
   const atts = Array.isArray(m.attachments) ? m.attachments : []
   const attsHtml = atts.length
@@ -156,22 +196,13 @@ function appendMessage(m) {
       </div>`
     : ''
 
-  const pinLabel = m.is_pinned ? 'Открепить' : 'Закрепить'
   div.innerHTML = `
     ${!isMine ? `<div class="message-author">${m.sender_name}</div>` : ''}
     <div class="message-bubble">${escapeHtml(m.content || '')}${attsHtml}</div>
-    <div class="message-actions">
-      <button type="button" class="btn-pin" data-id="${m.id}" data-pinned="${m.is_pinned ? '1' : '0'}">📌 ${pinLabel}</button>
-    </div>
     <div class="message-time">${time}</div>
   `
   area.appendChild(div)
   area.scrollTop = area.scrollHeight
-
-  const pinBtn = div.querySelector('.btn-pin')
-  if (pinBtn) {
-    pinBtn.onclick = () => togglePin(Number(pinBtn.getAttribute('data-id')), pinBtn.getAttribute('data-pinned') !== '1')
-  }
 }
 
 async function markAsRead(channelId) {
@@ -184,6 +215,7 @@ async function markAsRead(channelId) {
 async function sendMessage() {
   const input = document.getElementById('message-input')
   const content = input.value.trim()
+  if (uploadInProgress) return
   if ((!content && pendingAttachments.length === 0) || !activeChannelId) return
 
   socket.emit('message:send', {
@@ -197,6 +229,7 @@ async function sendMessage() {
   input.value = ''
   input.style.height = 'auto'
   pendingAttachments = []
+  updateAttachButton()
 }
 
 const sendBtn = document.getElementById('send-btn')
@@ -214,22 +247,21 @@ async function togglePin(messageId, pinned) {
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify({ pinned })
   })
-  // server will broadcast socket event; ignore response here
-  await res.json().catch(() => ({}))
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    alert(json.error || 'Не удалось закрепить сообщение')
+  }
 }
 
 socket.on('message:pin', (payload) => {
   if (!payload || payload.channel_id !== activeChannelId) return
+  const prev = currentMessagesById.get(payload.id) || { id: payload.id, channel_id: payload.channel_id }
+  const next = { ...prev, is_pinned: !!payload.is_pinned, pinned_at: payload.pinned_at, pinned_by: payload.pinned_by }
+  currentMessagesById.set(payload.id, next)
   const msgEl = document.getElementById(`m-${payload.id}`)
-  if (msgEl) {
-    const btn = msgEl.querySelector('.btn-pin')
-    if (btn) {
-      btn.setAttribute('data-pinned', payload.is_pinned ? '1' : '0')
-      btn.textContent = payload.is_pinned ? '📌 Открепить' : '📌 Закрепить'
-    }
-  }
-  // simplest: reload channel to recompute pinned bar state
-  if (activeChannelId) openChannel(activeChannelId, document.getElementById('chat-title')?.textContent || '')
+  if (msgEl) msgEl.setAttribute('data-pinned', payload.is_pinned ? '1' : '0')
+  renderPinnedBarFromCache()
+  closeMsgMenu()
 })
 
 const fileInput = document.getElementById('file-input')
@@ -244,22 +276,104 @@ if (attachBtn && fileInput) {
   fileInput.onchange = async () => {
     const files = Array.from(fileInput.files || [])
     if (files.length === 0) return
+    uploadInProgress = true
+    updateAttachButton()
     const fd = new FormData()
     files.slice(0, 5).forEach((f) => fd.append('files', f))
 
-    const res = await fetch('/api/chat/upload', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: fd
-    })
-    const json = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      alert(json.error || 'Не удалось загрузить файл')
-      return
+    try {
+      const res = await fetch('/api/chat/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: fd
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(json.error || 'Не удалось загрузить файл')
+        return
+      }
+      pendingAttachments = json.data || []
+    } catch (e) {
+      alert('Не удалось загрузить файл (сеть)')
+    } finally {
+      uploadInProgress = false
+      fileInput.value = ''
+      updateAttachButton()
     }
-    pendingAttachments = json.data || []
   }
 }
+
+// Context menu (ПКМ) and long-press (mobile) for message actions (pin/unpin)
+const messagesArea = document.getElementById('messages-area')
+let longPressTimer = null
+let longPressTargetId = null
+
+function closestMessageId(target) {
+  const el = target?.closest?.('.message')
+  if (!el) return null
+  const id = Number(el.getAttribute('data-id'))
+  return Number.isFinite(id) ? id : null
+}
+
+if (messagesArea) {
+  messagesArea.addEventListener('contextmenu', (e) => {
+    const id = closestMessageId(e.target)
+    if (!id) return
+    e.preventDefault()
+    openMsgMenu(id)
+  })
+
+  messagesArea.addEventListener('touchstart', (e) => {
+    const touch = e.touches?.[0]
+    const id = closestMessageId(e.target)
+    if (!touch || !id) return
+    longPressTargetId = id
+    clearTimeout(longPressTimer)
+    longPressTimer = setTimeout(() => {
+      openMsgMenu(id)
+    }, 450)
+  }, { passive: true })
+
+  ;['touchend', 'touchcancel', 'touchmove'].forEach((evt) => {
+    messagesArea.addEventListener(evt, () => {
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+      longPressTargetId = null
+    }, { passive: true })
+  })
+}
+
+const menuCancel = document.getElementById('msg-menu-cancel')
+const menuPin = document.getElementById('msg-menu-pin')
+if (menuCancel) {
+  menuCancel.onclick = closeMsgMenu
+  menuCancel.addEventListener('touchend', (e) => {
+    e.preventDefault()
+    closeMsgMenu()
+  })
+}
+if (menuPin) {
+  menuPin.onclick = async () => {
+    if (!activeMenuMessageId) return
+    const msg = currentMessagesById.get(activeMenuMessageId)
+    await togglePin(activeMenuMessageId, !msg?.is_pinned)
+  }
+  menuPin.addEventListener('touchend', async (e) => {
+    e.preventDefault()
+    if (!activeMenuMessageId) return
+    const msg = currentMessagesById.get(activeMenuMessageId)
+    await togglePin(activeMenuMessageId, !msg?.is_pinned)
+  })
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('msg-menu')
+  if (!menu || menu.style.display === 'none') return
+  if (menu.contains(e.target)) return
+  closeMsgMenu()
+})
+
+updateAttachButton()
 
 document.getElementById('message-input').onkeydown = (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
