@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Первый запуск — Horseclub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <h2>Первый запуск</h2>
+      <p class="login-sub">Создайте первого администратора клуба</p>
+
+      <div id="setup-error" class="login-error" style="display:none"></div>
+      <div id="setup-success" class="login-success" style="display:none"></div>
+
+      <div class="field">
+        <label>Имя и фамилия</label>
+        <input type="text" id="fullname-input" placeholder="Иванова Мария">
+      </div>
+
+      <div class="field">
+        <label>Логин администратора</label>
+        <input type="text" id="login-input" placeholder="admin">
+      </div>
+
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="password-input" placeholder="минимум 6 символов">
+      </div>
+
+      <button id="setup-btn">Создать администратора</button>
+
+      <p style="text-align:center;margin-top:16px;font-size:13px;color:#999">
+        Уже настроено? <a href="/login.html" style="color:#534AB7">Войти</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="setup.js"></script>
+</body>
+</html>

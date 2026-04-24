@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Регистрация — Конный клуб</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <h2>Регистрация</h2>
+      <p class="login-sub">Создайте аккаунт для доступа к расписанию</p>
+
+      <div id="reg-error" class="login-error" style="display:none"></div>
+      <div id="reg-success" class="login-success" style="display:none"></div>
+
+      <div class="field">
+        <label>Имя и фамилия</label>
+        <input type="text" id="fullname-input" placeholder="Иванова Мария">
+      </div>
+
+      <div class="field">
+        <label>Логин</label>
+        <input type="text" id="login-input" placeholder="Придумайте логин">
+      </div>
+
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="password-input" placeholder="Придумайте пароль">
+      </div>
+
+      <button id="reg-btn">Зарегистрироваться</button>
+
+      <p style="text-align:center;margin-top:16px;font-size:13px;color:#999">
+        Уже есть аккаунт? <a href="/login.html" style="color:#534AB7">Войти</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="register.js"></script>
+</body>
+</html>

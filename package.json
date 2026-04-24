@@ -1,0 +1,26 @@
+{
+  "name": "horse-club",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "db:schema": "node scripts/db/run-sql.js sql/schema.sql",
+    "db:seed": "node scripts/db/run-sql.js sql/seed.sql",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.20.0",
+    "sharp": "^0.34.5",
+    "socket.io": "^4.8.3"
+  }
+}

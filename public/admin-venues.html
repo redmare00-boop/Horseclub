@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Площадки — Horseclub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Площадки</h1>
+  <div class="user-info">
+    <a href="/" class="chat-link">← Расписание</a>
+    <a href="/admin-users.html" class="chat-link">Пользователи</a>
+    <span id="user-name"></span>
+    <button id="logout-btn">Выйти</button>
+  </div>
+</div>
+
+<div class="schedule-wrap" style="max-width:720px;margin:0 auto">
+  <div class="login-card" style="width:100%">
+    <h2 style="margin-bottom:8px">Добавить площадку</h2>
+    <p class="login-sub">Пустые поля лимитов = без ограничения. «Всего на слот» — сколько лошадей на время; «на пользователя» — лимит на одного человека (например, 3 в манеже)</p>
+    <div id="err" class="login-error" style="display:none"></div>
+    <div id="ok" class="login-success" style="display:none"></div>
+    <div class="field">
+      <label>Название</label>
+      <input type="text" id="v-name" placeholder="Новая площадка">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Макс. на слот (всего)</label>
+        <input type="number" id="v-max-t" min="0" placeholder="—">
+      </div>
+      <div class="field">
+        <label>Макс. на слот (на одного)</label>
+        <input type="number" id="v-max-u" min="0" placeholder="—">
+      </div>
+    </div>
+    <div class="field">
+      <label>Шаг слота (мин., пока 30)</label>
+      <input type="number" id="v-gran" value="30" min="15" step="15">
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="v-active" checked>
+      <label for="v-active" style="margin:0">Активна (видна в расписании)</label>
+    </div>
+    <button type="button" id="v-add" class="admin-venues-create">Создать</button>
+  </div>
+
+  <div class="login-card" style="width:100%;margin-top:14px">
+    <h2 style="margin-bottom:8px">Список</h2>
+    <div id="venues-list"></div>
+  </div>
+</div>
+
+<script src="admin-venues.js"></script>
+</body>
+</html>

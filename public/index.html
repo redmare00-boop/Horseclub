@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>График конного клуба</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#534AB7">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+</head>
+<body>
+
+<div class="topbar">
+  <h1>График конного клуба</h1>
+  <div class="user-info">
+    <span id="user-name"></span>
+    <a href="/admin-users.html" class="chat-link" id="admin-users-link" style="display:none">Пользователи</a>
+    <a href="/admin-venues.html" class="chat-link" id="admin-venues-link" style="display:none">Площадки</a>
+    <a href="/chat.html" class="chat-link">Чат</a>
+    <button id="logout-btn">Выйти</button>
+  </div>
+</div>
+
+<div class="schedule-wrap" style="max-width:980px;margin:0 auto">
+  <div class="login-card" style="width:100%">
+    <h2 style="margin-bottom:8px">Площадки</h2>
+    <p class="login-sub">Выберите площадку, чтобы открыть календарь</p>
+    <div id="venues-list" class="venues-list"></div>
+  </div>
+</div>
+
+<script src="home.js"></script>
+</body>
+</html>

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Лошади — Конный клуб</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f5f0eb; color: #333; }
+
+    header {
+      background: #4a3728; color: #fff;
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; }
+    header nav a {
+      color: #e0c9b0; text-decoration: none;
+      margin-left: 16px; font-size: 0.9rem;
+    }
+    header nav a.active { color: #fff; font-weight: 600; }
+
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    .page-header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 20px;
+    }
+    .page-header h2 { font-size: 1.3rem; }
+
+    .btn-primary {
+      background: #4a3728; color: #fff; border: none;
+      padding: 10px 20px; border-radius: 8px;
+      font-size: 0.95rem; cursor: pointer;
+    }
+    .btn-primary:hover { background: #6b4f3a; }
+
+    .horses-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .horse-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.1);
+      overflow: hidden; cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .horse-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 18px rgba(0,0,0,.18);
+    }
+    .horse-photo {
+      width: 100%; height: 160px; background: #e8d5c0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3rem; overflow: hidden;
+    }
+    .horse-photo img { width: 100%; height: 160px; object-fit: cover; display: block; }
+    .horse-card-body { padding: 14px 16px; }
+    .horse-card-body h3 { margin: 0 0 4px; font-size: 1.05rem; }
+    .horse-meta { color: #888; font-size: 0.82rem; margin-bottom: 10px; }
+    .badges { display: flex; flex-wrap: wrap; gap: 5px; }
+    .badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+    .ok   { background: #e6f4ea; color: #2e7d32; }
+    .soon { background: #fff8e1; color: #e65100; }
+    .due  { background: #fce4ec; color: #c62828; }
+    .none { background: #f0f0f0; color: #888; }
+
+    .empty-state {
+      grid-column: 1/-1; text-align: center;
+      color: #aaa; padding: 60px 20px;
+    }
+    .empty-state .emoji { font-size: 3rem; margin-bottom: 12px; }
+
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.5); z-index: 999;
+      justify-content: center; align-items: flex-start;
+      padding: 24px 12px; overflow-y: auto;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 14px;
+      width: 100%; max-width: 620px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.25);
+    }
+    .modal-head {
+      background: #4a3728; color: #fff;
+      padding: 14px 20px; border-radius: 14px 14px 0 0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-head h2 { font-size: 1rem; margin: 0; }
+    .modal-head button {
+      background: none; border: none; color: #fff;
+      font-size: 1.4rem; cursor: pointer; line-height: 1;
+    }
+    .modal-body { padding: 20px; }
+
+    .tabs { display: flex; border-bottom: 2px solid #e8ddd5; margin-bottom: 18px; }
+    .tab {
+      padding: 7px 16px; border: none; background: none;
+      font-size: 0.9rem; cursor: pointer; color: #888;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+    }
+    .tab.active { color: #4a3728; border-bottom-color: #4a3728; font-weight: 600; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .form-row.full { grid-template-columns: 1fr; }
+    label { display: block; font-size: 0.82rem; color: #555; margin-bottom: 3px; }
+    input, select, textarea {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid #ddd; border-radius: 7px;
+      font-size: 0.9rem; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #4a3728; }
+    textarea { resize: vertical; min-height: 60px; }
+
+    .btn-save {
+      background: #4a3728; color: #fff; border: none;
+      padding: 9px 24px; border-radius: 8px;
+      font-size: 0.9rem; cursor: pointer; margin-top: 12px;
+    }
+    .btn-save:hover { background: #6b4f3a; }
+    .btn-cancel {
+      background: none; border: 1px solid #ccc; color: #555;
+      padding: 9px 18px; border-radius: 8px;
+      font-size: 0.9rem; cursor: pointer; margin-top: 12px; margin-left: 8px;
+    }
+    .btn-danger {
+      background: none; border: 1px solid #c62828; color: #c62828;
+      padding: 9px 18px; border-radius: 8px;
+      font-size: 0.9rem; cursor: pointer; margin-top: 12px; margin-left: 8px;
+    }
+
+    .photo-upload-area {
+      border: 2px dashed #c9b99a; border-radius: 8px;
+      padding: 12px; text-align: center; cursor: pointer;
+      background: #faf7f4; transition: border-color .15s;
+    }
+    .photo-upload-area:hover { border-color: #4a3728; }
+    .photo-preview-img {
+      width: 100%; max-height: 200px; object-fit: cover;
+      border-radius: 8px; margin-bottom: 8px; display: none;
+    }
+
+    .med-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+    .med-item {
+      background: #faf7f4; border: 1px solid #e8ddd5;
+      border-radius: 8px; padding: 10px 12px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+    .med-item-info { flex: 1; }
+    .med-type {
+      font-size: 0.78rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 4px; margin-bottom: 4px;
+      display: inline-block;
+    }
+    .type-vaccination   { background: #e3f2fd; color: #0d47a1; }
+    .type-deworming     { background: #f3e5f5; color: #6a1b9a; }
+    .type-hoof_trimming { background: #e8f5e9; color: #1b5e20; }
+    .type-shoeing       { background: #fff3e0; color: #bf360c; }
+    .med-dates { font-size: 0.83rem; color: #555; }
+    .med-sub   { font-size: 0.8rem; color: #777; margin-top: 2px; }
+    .btn-del-med {
+      background: none; border: none; color: #ccc;
+      cursor: pointer; font-size: 1.1rem; padding: 0 4px;
+    }
+    .btn-del-med:hover { color: #c62828; }
+
+    .add-med-form {
+      background: #faf7f4; border: 1px dashed #c9b99a;
+      border-radius: 8px; padding: 14px; margin-top: 12px;
+    }
+    .add-med-form h4 { margin: 0 0 12px; font-size: 0.9rem; color: #4a3728; }
+    .btn-outline {
+      background: none; border: 1px solid #4a3728; color: #4a3728;
+      padding: 7px 14px; border-radius: 7px; font-size: 0.85rem;
+      cursor: pointer; margin-top: 10px;
+    }
+    .btn-outline:hover { background: #4a3728; color: #fff; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🐴 Конный клуб</h1>
+  <nav>
+    <a href="/">Расписание</a>
+    <a href="/chat.html">Чат</a>
+    <a href="/horses.html" class="active">Лошади</a>
+    <a href="#" id="logout-btn">Выйти</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="page-header">
+    <h2>Карточки лошадей</h2>
+    <button class="btn-primary" onclick="openAddHorse()">+ Добавить лошадь</button>
+  </div>
+  <div class="horses-grid" id="horses-grid">
+    <div class="empty-state">
+      <div class="emoji">🐴</div>
+      <div>Загрузка...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно -->
+<div class="overlay" id="horse-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modal-title">Новая лошадь</h2>
+      <button onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('info', this)">Основное</button>
+        <button class="tab" onclick="switchTab('medical', this)">Медкарта</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-info">
+        <input type="hidden" id="horse-id">
+        <div class="form-row">
+          <div><label>Кличка *</label><input id="f-name" placeholder="Буран"></div>
+          <div><label>Масть</label><input id="f-color" placeholder="Гнедой"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Порода</label><input id="f-breed" placeholder="Тракенская"></div>
+          <div><label>Год рождения</label><input id="f-year" type="number" placeholder="2018"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Номер чипа</label><input id="f-chip" placeholder="123456789012345"></div>
+          <div><label>Номер паспорта</label><input id="f-passport" placeholder="RUS 001234"></div>
+        </div>
+        <div class="form-row full">
+          <div><label>Владелец</label><input id="f-owner" placeholder="Иванова А.В."></div>
+        </div>
+        <div class="form-row full">
+          <div>
+            <label>Фото</label>
+            <div class="photo-upload-area" onclick="document.getElementById('f-photo').click()">
+              <img id="photo-img" class="photo-preview-img" src="" alt="Фото лошади">
+              <div id="photo-placeholder">📷 Нажмите чтобы выбрать фото</div>
+            </div>
+            <input type="file" id="f-photo" accept="image/*" style="display:none" onchange="previewPhoto(this)">
+          </div>
+        </div>
+        <div class="form-row full">
+          <div><label>Заметки</label><textarea id="f-notes" placeholder="Особенности, аллергии..."></textarea></div>
+        </div>
+        <button class="btn-save" onclick="saveHorse()">Сохранить</button>
+        <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+        <button class="btn-danger" id="btn-delete" onclick="deleteHorse()" style="display:none;">Удалить</button>
+      </div>
+
+      <div class="tab-panel" id="tab-medical">
+        <div class="med-list" id="med-list">
+          <div style="color:#aaa;font-size:.85rem;">Сначала сохраните лошадь</div>
+        </div>
+        <button class="btn-outline" onclick="toggleAddMed()" id="btn-toggle-med" style="display:none;">+ Добавить запись</button>
+        <div class="add-med-form" id="add-med-form" style="display:none;">
+          <h4>Новая запись</h4>
+          <div class="form-row">
+            <div>
+              <label>Тип</label>
+              <select id="m-type">
+                <option value="vaccination">💉 Вакцинация</option>
+                <option value="deworming">🔬 Дегельминтизация</option>
+                <option value="hoof_trimming">🔧 Расчистка копыт</option>
+                <option value="shoeing">🐴 Ковка</option>
+              </select>
+            </div>
+            <div><label>Дата проведения *</label><input id="m-date" type="date"></div>
+          </div>
+          <div class="form-row">
+            <div><label>Следующая дата</label><input id="m-next" type="date"></div>
+            <div><label>Исполнитель</label><input id="m-by" placeholder="Ветеринар Иванов"></div>
+          </div>
+          <div class="form-row full">
+            <div><label>Препарат / описание</label><input id="m-desc" placeholder="Биовак, 2 мл"></div>
+          </div>
+          <button class="btn-save" onclick="saveMedRecord()">Добавить</button>
+          <button class="btn-cancel" onclick="toggleAddMed()">Отмена</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const TYPE_LABELS = {
+  vaccination:   '💉 Вакцинация',
+  deworming:     '🔬 Дегельминтизация',
+  hoof_trimming: '🔧 Расчистка',
+  shoeing:       '🐴 Ковка'
+};
+
+let currentHorseId = null;
+let horses = [];
+
+async function loadHorses() {
+  try {
+    const res = await fetch('/api/horses');
+    horses = await res.json();
+    renderGrid();
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function renderGrid() {
+  const grid = document.getElementById('horses-grid');
+  if (!horses.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="emoji">🐴</div>
+      <div>Лошади ещё не добавлены</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = horses.map(h => `
+    <div class="horse-card" onclick="openHorse(${h.id})">
+      <div class="horse-photo">
+        ${h.photo_url
+          ? `<img src="${h.photo_url}" alt="${h.name}" onerror="this.parentElement.innerHTML='🐴'">`
+          : '🐴'}
+      </div>
+      <div class="horse-card-body">
+        <h3>${h.name}</h3>
+        <div class="horse-meta">${[h.breed, h.color, h.birth_year].filter(Boolean).join(' · ')}</div>
+        <div class="badges">${getBadges(h.medical || [])}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getBadges(medical) {
+  const types = ['vaccination','deworming','hoof_trimming','shoeing'];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const soon  = new Date(today); soon.setDate(today.getDate() + 30);
+  return types.map(type => {
+    const last = (medical || []).filter(m => m.record_type === type)[0];
+    const label = TYPE_LABELS[type].split(' ')[1];
+    if (!last)            return `<span class="badge none">${label}</span>`;
+    if (!last.next_date)  return `<span class="badge ok">${label}</span>`;
+    const next = new Date(last.next_date);
+    if (next < today)     return `<span class="badge due">${label} ⚠️</span>`;
+    if (next <= soon)     return `<span class="badge soon">${label} !</span>`;
+    return `<span class="badge ok">${label}</span>`;
+  }).join('');
+}
+
+function openAddHorse() {
+  currentHorseId = null;
+  document.getElementById('modal-title').textContent = 'Новая лошадь';
+  document.getElementById('btn-delete').style.display = 'none';
+  document.getElementById('btn-toggle-med').style.display = 'none';
+  clearForm();
+  switchTab('info');
+  document.getElementById('horse-modal').classList.add('open');
+}
+
+async function openHorse(id) {
+  const res = await fetch(`/api/horses/${id}`);
+  const h = await res.json();
+  currentHorseId = id;
+  document.getElementById('modal-title').textContent = h.name;
+  document.getElementById('btn-delete').style.display = 'inline-block';
+  document.getElementById('btn-toggle-med').style.display = 'inline-block';
+  document.getElementById('horse-id').value      = id;
+  document.getElementById('f-name').value        = h.name || '';
+  document.getElementById('f-color').value       = h.color || '';
+  document.getElementById('f-breed').value       = h.breed || '';
+  document.getElementById('f-year').value        = h.birth_year || '';
+  document.getElementById('f-chip').value        = h.chip_number || '';
+  document.getElementById('f-passport').value    = h.passport_number || '';
+  document.getElementById('f-owner').value       = h.owner || '';
+  document.getElementById('f-notes').value       = h.notes || '';
+  window._pendingPhotoBase64 = null;
+  if (h.photo_url) {
+    document.getElementById('photo-img').src = h.photo_url;
+    document.getElementById('photo-img').style.display = 'block';
+    document.getElementById('photo-placeholder').style.display = 'none';
+  } else {
+    document.getElementById('photo-img').style.display = 'none';
+    document.getElementById('photo-placeholder').style.display = 'block';
+  }
+  renderMedList(h.medical || []);
+  switchTab('info');
+  document.getElementById('horse-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('horse-modal').classList.remove('open');
+  document.getElementById('add-med-form').style.display = 'none';
+}
+
+function clearForm() {
+  ['f-name','f-color','f-breed','f-year','f-chip','f-passport','f-owner','f-notes']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('horse-id').value = '';
+  document.getElementById('photo-img').style.display = 'none';
+  document.getElementById('photo-img').src = '';
+  document.getElementById('photo-placeholder').style.display = 'block';
+  document.getElementById('med-list').innerHTML = '<div style="color:#aaa;font-size:.85rem;">Сначала сохраните лошадь</div>';
+  window._pendingPhotoBase64 = null;
+}
+
+function previewPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Фото слишком большое! Максимальный размер — 5 МБ. Пожалуйста, выберите другое фото.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = h * MAX / w; w = MAX; }
+      if (h > MAX) { w = w * MAX / h; h = MAX; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const base64 = canvas.toDataURL('image/jpeg', 0.8);
+      window._pendingPhotoBase64 = base64;
+      document.getElementById('photo-img').src = base64;
+      document.getElementById('photo-img').style.display = 'block';
+      document.getElementById('photo-placeholder').style.display = 'none';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveHorse() {
+  const id = document.getElementById('horse-id').value;
+  const body = {
+    name:            document.getElementById('f-name').value.trim(),
+    color:           document.getElementById('f-color').value.trim(),
+    breed:           document.getElementById('f-breed').value.trim(),
+    birth_year:      document.getElementById('f-year').value || null,
+    chip_number:     document.getElementById('f-chip').value.trim(),
+    passport_number: document.getElementById('f-passport').value.trim(),
+    owner:           document.getElementById('f-owner').value.trim(),
+    photo_url:       window._pendingPhotoBase64 || document.getElementById('photo-img').src || null,
+    notes:           document.getElementById('f-notes').value.trim(),
+  };
+  if (!body.name) return alert('Введите кличку лошади');
+  // Убираем пустую строку src
+  if (body.photo_url === '') body.photo_url = null;
+  const url    = id ? `/api/horses/${id}` : '/api/horses';
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const saved = await res.json();
+  if (!id) {
+    currentHorseId = saved.id;
+    document.getElementById('horse-id').value = saved.id;
+    document.getElementById('btn-delete').style.display = 'inline-block';
+    document.getElementById('btn-toggle-med').style.display = 'inline-block';
+    document.getElementById('modal-title').textContent = saved.name;
+  }
+  window._pendingPhotoBase64 = null;
+  loadHorses();
+  alert('Сохранено!');
+}
+
+async function deleteHorse() {
+  if (!confirm('Удалить эту лошадь и все её медзаписи?')) return;
+  await fetch(`/api/horses/${currentHorseId}`, { method: 'DELETE' });
+  closeModal();
+  loadHorses();
+}
+
+function renderMedList(medical) {
+  const list = document.getElementById('med-list');
+  if (!medical.length) {
+    list.innerHTML = '<div style="color:#aaa;font-size:.85rem;">Записей пока нет</div>';
+    return;
+  }
+  list.innerHTML = medical.map(m => `
+    <div class="med-item">
+      <div class="med-item-info">
+        <div class="med-type type-${m.record_type}">${TYPE_LABELS[m.record_type] || m.record_type}</div>
+        <div class="med-dates">${fmtDate(m.event_date)}${m.next_date ? ' → следующая: ' + fmtDate(m.next_date) : ''}</div>
+        ${m.description  ? `<div class="med-sub">${m.description}</div>` : ''}
+        ${m.performed_by ? `<div class="med-sub" style="color:#999">${m.performed_by}</div>` : ''}
+      </div>
+      <button class="btn-del-med" onclick="deleteMed(${m.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+function toggleAddMed() {
+  const f = document.getElementById('add-med-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveMedRecord() {
+  if (!currentHorseId) return alert('Сначала сохраните лошадь');
+  const body = {
+    record_type:  document.getElementById('m-type').value,
+    event_date:   document.getElementById('m-date').value,
+    next_date:    document.getElementById('m-next').value || null,
+    performed_by: document.getElementById('m-by').value.trim(),
+    description:  document.getElementById('m-desc').value.trim(),
+  };
+  if (!body.event_date) return alert('Укажите дату проведения');
+  await fetch(`/api/horses/${currentHorseId}/medical`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const res = await fetch(`/api/horses/${currentHorseId}`);
+  const h = await res.json();
+  renderMedList(h.medical || []);
+  document.getElementById('add-med-form').style.display = 'none';
+  ['m-date','m-next','m-by','m-desc'].forEach(id => document.getElementById(id).value = '');
+  loadHorses();
+}
+
+async function deleteMed(medId) {
+  if (!confirm('Удалить эту запись?')) return;
+  await fetch(`/api/horses/${currentHorseId}/medical/${medId}`, { method: 'DELETE' });
+  const res = await fetch(`/api/horses/${currentHorseId}`);
+  const h = await res.json();
+  renderMedList(h.medical || []);
+  loadHorses();
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.querySelector(`.tab[onclick*="${name}"]`)?.classList.add('active');
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('ru-RU');
+}
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('token');
+  window.location.href = '/login.html';
+});
+
+document.getElementById('horse-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+loadHorses();
+</script>
+</body>
+</html>
