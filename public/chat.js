@@ -574,10 +574,19 @@ if (dialogMenuCancel) {
   })
 }
 if (dialogMenuDel) {
+  let inFlight = false
   const run = async (e) => {
-    if (e) e.preventDefault()
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation?.()
+    }
+    if (inFlight) return
     if (!activeMenuChannelId) return
-    if (!confirm('Удалить чат? Он исчезнет у обоих участников.')) return
+    inFlight = true
+    if (!confirm('Удалить чат? Он исчезнет у обоих участников.')) {
+      inFlight = false
+      return
+    }
     dialogMenuDel.disabled = true
     const prevText = dialogMenuDel.textContent
     dialogMenuDel.textContent = '⏳'
@@ -605,11 +614,13 @@ if (dialogMenuDel) {
     } finally {
       dialogMenuDel.textContent = prevText
       dialogMenuDel.disabled = false
+      inFlight = false
     }
   }
+  // Desktop
   dialogMenuDel.onclick = run
+  // iOS: используем только touchstart, чтобы не получать дубли (touchend/click).
   dialogMenuDel.addEventListener('touchstart', run, { passive: false })
-  dialogMenuDel.addEventListener('touchend', run, { passive: false })
 }
 
 document.getElementById('message-input').onkeydown = (e) => {
