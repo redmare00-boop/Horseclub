@@ -92,6 +92,10 @@ router.post('/messages/:id/pin', requireAuth, async (req, res) => {
     const messageId = parseInt(req.params.id, 10)
     const { pinned } = req.body || {}
     const shouldPin = !!pinned
+    const actorUserId = Number(req.user.id)
+    if (!Number.isFinite(actorUserId)) {
+      return res.status(401).json({ error: 'Необходима авторизация' })
+    }
 
     // Check access: message's channel must be available to current user.
     const access = await pool.query(
@@ -120,7 +124,7 @@ router.post('/messages/:id/pin', requireAuth, async (req, res) => {
       WHERE id = $1
       RETURNING *
       `,
-      [messageId, shouldPin, req.user.id]
+      [messageId, shouldPin, actorUserId]
     )
 
     const row = updated.rows[0]

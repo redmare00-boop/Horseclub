@@ -56,10 +56,17 @@ io.on('connection', (socket) => {
   socket.on('message:send', async (data) => {
     const { channel_id, content, sender_id, sender_name, attachments } = data
     try {
+      const senderIdInt = Number(sender_id)
+      const channelIdInt = Number(channel_id)
       const result = await pool.query(
         `INSERT INTO messages (channel_id, sender_id, content, attachments)
          VALUES ($1, $2, $3, $4) RETURNING *`,
-        [channel_id, sender_id, content || '', JSON.stringify(Array.isArray(attachments) ? attachments : [])]
+        [
+          Number.isFinite(channelIdInt) ? channelIdInt : channel_id,
+          Number.isFinite(senderIdInt) ? senderIdInt : sender_id,
+          content || '',
+          JSON.stringify(Array.isArray(attachments) ? attachments : [])
+        ]
       )
       const message = {
         ...result.rows[0],
