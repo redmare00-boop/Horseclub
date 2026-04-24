@@ -242,28 +242,36 @@ sendBtn.addEventListener('touchend', (e) => {
 
 async function togglePin(messageId, pinned) {
   if (!activeChannelId) return
-  const res = await fetch(`/api/chat/messages/${messageId}/pin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({ pinned })
-  })
-  const json = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    alert(json.error || 'Не удалось закрепить сообщение')
-    return
-  }
+  try {
+    const res = await fetch(`/api/chat/messages/${messageId}/pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ pinned })
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(json.error || `Не удалось закрепить (HTTP ${res.status})`)
+      return { ok: false, error: json.error || String(res.status) }
+    }
 
-  // Optimistic UI update even if socket event is delayed/missed
-  const row = json.data
-  if (row?.id) {
-    const prev = currentMessagesById.get(row.id) || { id: row.id, channel_id: row.channel_id }
-    const next = { ...prev, ...row }
-    currentMessagesById.set(row.id, next)
-    const msgEl = document.getElementById(`m-${row.id}`)
-    if (msgEl) msgEl.setAttribute('data-pinned', row.is_pinned ? '1' : '0')
-    renderPinnedBarFromCache()
+    // Optimistic UI update even if socket event is delayed/missed
+    const row = json.data
+    if (row?.id) {
+      const prev = currentMessagesById.get(row.id) || { id: row.id, channel_id: row.channel_id }
+      const next = { ...prev, ...row }
+      currentMessagesById.set(row.id, next)
+      const msgEl = document.getElementById(`m-${row.id}`)
+      if (msgEl) msgEl.setAttribute('data-pinned', row.is_pinned ? '1' : '0')
+      renderPinnedBarFromCache()
+      closeMsgMenu()
+      return { ok: true, data: row }
+    }
+    alert('Закрепление: сервер вернул неожиданный ответ')
+    return { ok: false, error: 'bad_response' }
+  } catch (e) {
+    alert('Не удалось закрепить (сеть)')
+    return { ok: false, error: 'network' }
   }
-  closeMsgMenu()
 }
 
 socket.on('message:pin', (payload) => {
@@ -384,17 +392,17 @@ if (menuCancel) {
   })
 }
 if (menuPin) {
-  menuPin.onclick = async () => {
+  const runPin = async (e) => {
+    if (e) e.preventDefault()
     if (!activeMenuMessageId) return
+    menuPin.disabled = true
     const msg = currentMessagesById.get(activeMenuMessageId)
     await togglePin(activeMenuMessageId, !msg?.is_pinned)
+    menuPin.disabled = false
   }
-  menuPin.addEventListener('touchend', async (e) => {
-    e.preventDefault()
-    if (!activeMenuMessageId) return
-    const msg = currentMessagesById.get(activeMenuMessageId)
-    await togglePin(activeMenuMessageId, !msg?.is_pinned)
-  })
+  // iOS: touchstart срабатывает надёжнее touchend/click
+  menuPin.onclick = runPin
+  menuPin.addEventListener('touchstart', runPin, { passive: false })
 }
 
 document.addEventListener('click', (e) => {
