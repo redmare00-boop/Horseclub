@@ -728,6 +728,14 @@ button.delete-btn:active:not(:disabled) {
   background: #fff;
 }
 
+@media (max-width: 768px) {
+  /* iOS: предотвращаем авто-zoom при фокусе в инпутах (нужно >=16px) */
+  .chat-search input {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+}
+
 .search-results {
   position: absolute;
   top: 100%;

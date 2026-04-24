@@ -531,6 +531,8 @@ async function fetchAndShowUsers(query) {
       const json = await res.json()
       await loadChannels()
       openChannel(json.data.id, item.dataset.name)
+      // After user selection (gesture), focus message input so keyboard appears.
+      setTimeout(() => document.getElementById('message-input')?.focus(), 0)
     }
   })
 }
@@ -538,16 +540,12 @@ async function fetchAndShowUsers(query) {
 const plusBtn = document.getElementById('open-user-picker')
 if (plusBtn) {
   plusBtn.onclick = async () => {
-    const input = document.getElementById('user-search')
-    input.value = ''
-    input.focus()
+    document.getElementById('user-search').value = ''
     await fetchAndShowUsers('')
   }
   plusBtn.addEventListener('touchend', async (e) => {
     e.preventDefault()
-    const input = document.getElementById('user-search')
-    input.value = ''
-    input.focus()
+    document.getElementById('user-search').value = ''
     await fetchAndShowUsers('')
   })
 }
