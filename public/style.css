@@ -980,6 +980,7 @@ button.delete-btn:active:not(:disabled) {
   padding: 10px;
   display: flex;
   gap: 8px;
+  pointer-events: auto;
 }
 .msg-menu button {
   flex: 1;
@@ -988,6 +989,8 @@ button.delete-btn:active:not(:disabled) {
   border: 1px solid #ddd;
   background: #fff;
   font-size: 14px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .msg-menu #msg-menu-pin {
   border-color: #534AB7;

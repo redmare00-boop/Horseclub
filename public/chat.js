@@ -396,13 +396,18 @@ if (menuPin) {
     if (e) e.preventDefault()
     if (!activeMenuMessageId) return
     menuPin.disabled = true
+    const prevText = menuPin.textContent
+    menuPin.textContent = '⏳'
     const msg = currentMessagesById.get(activeMenuMessageId)
     await togglePin(activeMenuMessageId, !msg?.is_pinned)
+    menuPin.textContent = prevText
     menuPin.disabled = false
   }
   // iOS: touchstart срабатывает надёжнее touchend/click
   menuPin.onclick = runPin
   menuPin.addEventListener('touchstart', runPin, { passive: false })
+  menuPin.addEventListener('touchend', runPin, { passive: false })
+  menuPin.addEventListener('pointerup', runPin)
 }
 
 document.addEventListener('click', (e) => {
