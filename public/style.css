@@ -1022,18 +1022,28 @@ button.delete-btn:active:not(:disabled) {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
   padding: 10px;
   display: flex;
+  flex-direction: column;
   gap: 8px;
   pointer-events: auto;
 }
 .msg-menu button {
-  flex: 1;
-  padding: 10px 12px;
+  flex: unset;
+  width: 100%;
+  padding: 12px 12px;
   border-radius: 10px;
   border: 1px solid #ddd;
   background: #fff;
   font-size: 14px;
+  text-align: left;
+  justify-content: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+.msg-menu button:active:not(:disabled) {
+  transform: scale(0.99);
 }
 
 .msg-menu,
