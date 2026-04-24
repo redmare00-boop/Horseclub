@@ -922,6 +922,33 @@ button.delete-btn:active:not(:disabled) {
   word-break: break-word;
 }
 
+.message-edit {
+  width: 100%;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 8px 10px;
+  resize: none;
+}
+.message-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.message-edit-actions button {
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.message-edit-actions .primary {
+  border-color: #534AB7;
+  color: #534AB7;
+}
+
 @media (max-width: 768px) {
   /* iOS Chrome/Safari: отключаем нативное меню/лупу на долгом тапе по сообщению,
      чтобы работало наше меню действий */

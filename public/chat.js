@@ -17,6 +17,8 @@ const currentMessagesById = new Map()
 let activeMenuMessageId = null
 let activeMenuChannelId = null
 let activeForwardMessageId = null
+let editingMessageId = null
+let editingBackupHtml = null
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -68,9 +70,10 @@ function closeMsgMenu() {
 function openMsgMenu(messageId) {
   const menu = document.getElementById('msg-menu')
   const pinBtn = document.getElementById('msg-menu-pin')
+  const editBtn = document.getElementById('msg-menu-edit')
   const fwdBtn = document.getElementById('msg-menu-fwd')
   const delBtn = document.getElementById('msg-menu-del')
-  if (!menu || !pinBtn || !fwdBtn || !delBtn) return
+  if (!menu || !pinBtn || !editBtn || !fwdBtn || !delBtn) return
 
   activeMenuMessageId = messageId
   const msg = currentMessagesById.get(messageId)
@@ -79,6 +82,10 @@ function openMsgMenu(messageId) {
 
   const canDelete = msg && (Number(msg.sender_id) === Number(user.id) || user.role === 'admin')
   delBtn.style.display = canDelete ? 'inline-flex' : 'none'
+
+  const isForwarded = String(msg?.content || '').trim().startsWith('↪')
+  const canEdit = msg && !isForwarded && (Number(msg.sender_id) === Number(user.id) || user.role === 'admin')
+  editBtn.style.display = canEdit ? 'inline-flex' : 'none'
   menu.style.display = 'flex'
 }
 
@@ -166,6 +173,93 @@ function forwardTo(targetChannelId) {
     forwardInFlight = false
     loadChannels()
   }, 200)
+}
+
+function cancelEditMessage() {
+  if (!editingMessageId) return
+  const wrap = document.getElementById(`m-${editingMessageId}`)
+  if (wrap && editingBackupHtml) {
+    wrap.innerHTML = editingBackupHtml
+  }
+  editingMessageId = null
+  editingBackupHtml = null
+}
+
+async function saveEditMessage(messageId, newContent) {
+  const res = await fetch(`/api/chat/messages/${messageId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ content: newContent })
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    alert(json.error || `Не удалось изменить (HTTP ${res.status})`)
+    return null
+  }
+  return json.data
+}
+
+function startEditMessage(messageId) {
+  if (editingMessageId && editingMessageId !== messageId) cancelEditMessage()
+  const msg = currentMessagesById.get(messageId)
+  if (!msg) return
+  if (String(msg.content || '').trim().startsWith('↪')) return
+
+  const wrap = document.getElementById(`m-${messageId}`)
+  if (!wrap) return
+
+  const bubble = wrap.querySelector('.message-bubble')
+  if (!bubble) return
+
+  editingMessageId = messageId
+  editingBackupHtml = wrap.innerHTML
+
+  const originalText = String(msg.content || '')
+
+  bubble.innerHTML = `
+    <textarea class="message-edit" rows="2"></textarea>
+    <div class="message-edit-actions">
+      <button type="button" class="primary" data-act="save">Сохранить</button>
+      <button type="button" data-act="cancel">Отмена</button>
+    </div>
+  `
+
+  const ta = bubble.querySelector('textarea')
+  ta.value = originalText
+  // iOS: avoid scroll-jumps
+  try {
+    ta.focus({ preventScroll: true })
+  } catch {
+    ta.focus()
+  }
+
+  const actions = bubble.querySelector('.message-edit-actions')
+  actions.addEventListener(
+    'touchstart',
+    async (e) => {
+      const btn = e.target.closest('button')
+      if (!btn) return
+      e.preventDefault()
+      const act = btn.getAttribute('data-act')
+      if (act === 'cancel') {
+        cancelEditMessage()
+        return
+      }
+      if (act === 'save') {
+        const nextText = ta.value.trim()
+        if (!nextText) return
+        btn.disabled = true
+        const updated = await saveEditMessage(messageId, nextText)
+        btn.disabled = false
+        if (updated) {
+          currentMessagesById.set(messageId, { ...msg, ...updated })
+          // simplest: reload channel
+          openChannel(activeChannelId, document.getElementById('chat-title')?.textContent || '')
+        }
+      }
+    },
+    { passive: false }
+  )
 }
 
 socket.on('connect', () => {
@@ -262,6 +356,7 @@ function appendMessage(m) {
   const time = new Date(m.created_at).toLocaleTimeString('ru-RU', {
     hour: '2-digit', minute: '2-digit'
   })
+  const editedMark = m.edited_at ? ' (ред.)' : ''
 
   const div = document.createElement('div')
   div.className = 'message ' + (isMine ? 'mine' : 'other')
@@ -289,7 +384,7 @@ function appendMessage(m) {
   div.innerHTML = `
     ${!isMine ? `<div class="message-author">${m.sender_name}</div>` : ''}
     <div class="message-bubble">${escapeHtml(m.content || '')}${attsHtml}</div>
-    <div class="message-time">${time}</div>
+    <div class="message-time">${time}${editedMark}</div>
   `
   area.appendChild(div)
   area.scrollTop = area.scrollHeight
@@ -388,6 +483,13 @@ socket.on('message:delete', (payload) => {
   if (el) el.remove()
   renderPinnedBarFromCache()
   closeMsgMenu()
+})
+
+socket.on('message:edit', (payload) => {
+  if (!payload || payload.channel_id !== activeChannelId) return
+  const prev = currentMessagesById.get(payload.id) || { id: payload.id, channel_id: payload.channel_id }
+  currentMessagesById.set(payload.id, { ...prev, content: payload.content, edited_at: payload.edited_at, edited_by: payload.edited_by })
+  if (activeChannelId) openChannel(activeChannelId, document.getElementById('chat-title')?.textContent || '')
 })
 
 const fileInput = document.getElementById('file-input')
@@ -489,6 +591,7 @@ if (messagesArea) {
 
 const menuCancel = document.getElementById('msg-menu-cancel')
 const menuPin = document.getElementById('msg-menu-pin')
+const menuEdit = document.getElementById('msg-menu-edit')
 const menuFwd = document.getElementById('msg-menu-fwd')
 const menuDel = document.getElementById('msg-menu-del')
 if (menuCancel) {
@@ -515,6 +618,19 @@ if (menuPin) {
   menuPin.addEventListener('touchstart', runPin, { passive: false })
   menuPin.addEventListener('touchend', runPin, { passive: false })
   menuPin.addEventListener('pointerup', runPin)
+}
+if (menuEdit) {
+  const run = (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation?.()
+    }
+    if (!activeMenuMessageId) return
+    startEditMessage(activeMenuMessageId)
+    closeMsgMenu()
+  }
+  menuEdit.onclick = run
+  menuEdit.addEventListener('touchstart', run, { passive: false })
 }
 if (menuFwd) {
   const run = (e) => {

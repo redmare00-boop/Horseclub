@@ -147,6 +147,71 @@ router.get('/channels/:id/messages', requireAuth, async (req, res) => {
   }
 })
 
+// Редактировать сообщение: только автор или админ. Нельзя редактировать пересланные.
+router.put('/messages/:id', requireAuth, async (req, res) => {
+  const io = req.app.get('io')
+  try {
+    const messageId = parseInt(req.params.id, 10)
+    const actorUserId = parseInt(String(req.user.id), 10)
+    const { content } = req.body || {}
+    const newContent = String(content ?? '').trim()
+
+    if (!Number.isFinite(messageId) || !Number.isFinite(actorUserId)) {
+      return res.status(400).json({ error: 'Некорректный запрос' })
+    }
+    if (!newContent) {
+      return res.status(400).json({ error: 'Текст не должен быть пустым' })
+    }
+
+    const access = await pool.query(
+      `
+      SELECT m.id, m.channel_id, m.sender_id, m.content, c.type
+      FROM messages m
+      JOIN channels c ON c.id = m.channel_id
+      WHERE m.id = $1 AND m.is_deleted = false AND (${canAccessChannelSql()})
+      `,
+      [messageId, actorUserId]
+    )
+    if (access.rows.length === 0) {
+      return res.status(404).json({ error: 'Сообщение не найдено' })
+    }
+
+    const row = access.rows[0]
+    const isAdmin = req.user.role === 'admin'
+    if (!isAdmin && Number(row.sender_id) !== actorUserId) {
+      return res.status(403).json({ error: 'Недостаточно прав' })
+    }
+    if (String(row.content || '').trim().startsWith('↪')) {
+      return res.status(400).json({ error: 'Пересланные сообщения нельзя редактировать' })
+    }
+
+    const updated = await pool.query(
+      `
+      UPDATE messages
+      SET content = $2,
+          edited_at = NOW(),
+          edited_by = $3::int
+      WHERE id = $1
+      RETURNING *
+      `,
+      [messageId, newContent, actorUserId]
+    )
+
+    const out = updated.rows[0]
+    io?.to(`channel:${out.channel_id}`).emit('message:edit', {
+      id: out.id,
+      channel_id: out.channel_id,
+      content: out.content,
+      edited_at: out.edited_at,
+      edited_by: out.edited_by
+    })
+
+    res.json({ data: out })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // Удалить сообщение (мягко): только автор сообщения или админ
 router.delete('/messages/:id', requireAuth, async (req, res) => {
   const io = req.app.get('io')
