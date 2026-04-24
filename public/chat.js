@@ -15,6 +15,7 @@ let pendingAttachments = []
 let uploadInProgress = false
 const currentMessagesById = new Map()
 let activeMenuMessageId = null
+let activeMenuChannelId = null
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -87,6 +88,20 @@ function setDialogOpen(isOpen) {
   backBtn.style.display = isOpen ? 'inline-flex' : 'none'
 }
 
+function closeDialogMenu() {
+  const menu = document.getElementById('dialog-menu')
+  if (!menu) return
+  menu.style.display = 'none'
+  activeMenuChannelId = null
+}
+
+function openDialogMenu(channelId) {
+  const menu = document.getElementById('dialog-menu')
+  if (!menu) return
+  activeMenuChannelId = channelId
+  menu.style.display = 'flex'
+}
+
 socket.on('connect', () => {
   socket.emit('join', user.id)
 })
@@ -127,6 +142,8 @@ function renderDialogs() {
   channels.forEach(ch => {
     const item = document.createElement('div')
     item.className = 'dialog-item' + (ch.id === activeChannelId ? ' active' : '')
+    item.setAttribute('data-id', String(ch.id))
+    item.setAttribute('data-type', ch.type)
     item.innerHTML = `
       <span class="dialog-name">${ch.name || 'Личный чат'}</span>
       ${ch.unread_count > 0 ? `<span class="dialog-unread">${ch.unread_count}</span>` : ''}
@@ -165,6 +182,7 @@ async function openChannel(channelId, name) {
   renderDialogs()
   renderPinnedBar(messages)
   closeMsgMenu()
+  closeDialogMenu()
 }
 
 function appendMessage(m) {
@@ -477,7 +495,122 @@ document.addEventListener('click', (e) => {
   closeMsgMenu()
 })
 
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('dialog-menu')
+  if (!menu || menu.style.display === 'none') return
+  if (menu.contains(e.target)) return
+  closeDialogMenu()
+})
+
 updateAttachButton()
+
+// Dialog context menu (delete direct chats)
+const dialogsList = document.getElementById('dialogs-list')
+function closestDialogEl(target) {
+  return target?.closest?.('.dialog-item')
+}
+function dialogMeta(el) {
+  if (!el) return null
+  const id = Number(el.getAttribute('data-id'))
+  const type = el.getAttribute('data-type')
+  if (!Number.isFinite(id)) return null
+  return { id, type }
+}
+
+if (dialogsList) {
+  // Right-click on desktop
+  dialogsList.addEventListener('contextmenu', (e) => {
+    const el = closestDialogEl(e.target)
+    const meta = dialogMeta(el)
+    if (!meta) return
+    if (meta.type !== 'direct') return
+    e.preventDefault()
+    openDialogMenu(meta.id)
+  })
+
+  // Long-press on mobile (iOS Chrome)
+  let lpTimer = null
+  let lpFired = false
+  const LP_MS = 450
+  function clearLp() {
+    if (lpTimer) clearTimeout(lpTimer)
+    lpTimer = null
+    lpFired = false
+  }
+  dialogsList.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches?.length !== 1) return
+      const el = closestDialogEl(e.target)
+      const meta = dialogMeta(el)
+      if (!meta || meta.type !== 'direct') return
+      clearLp()
+      lpTimer = setTimeout(() => {
+        lpFired = true
+        openDialogMenu(meta.id)
+      }, LP_MS)
+    },
+    { passive: true }
+  )
+  dialogsList.addEventListener(
+    'touchend',
+    (e) => {
+      if (lpFired) e.preventDefault()
+      clearLp()
+    },
+    { passive: false }
+  )
+  dialogsList.addEventListener('touchcancel', clearLp, { passive: true })
+  dialogsList.addEventListener('touchmove', clearLp, { passive: true })
+}
+
+const dialogMenuCancel = document.getElementById('dialog-menu-cancel')
+const dialogMenuDel = document.getElementById('dialog-menu-del')
+if (dialogMenuCancel) {
+  dialogMenuCancel.onclick = closeDialogMenu
+  dialogMenuCancel.addEventListener('touchend', (e) => {
+    e.preventDefault()
+    closeDialogMenu()
+  })
+}
+if (dialogMenuDel) {
+  const run = async (e) => {
+    if (e) e.preventDefault()
+    if (!activeMenuChannelId) return
+    if (!confirm('Удалить чат? Он исчезнет у обоих участников.')) return
+    dialogMenuDel.disabled = true
+    const prevText = dialogMenuDel.textContent
+    dialogMenuDel.textContent = '⏳'
+    try {
+      const res = await fetch(`/api/chat/channels/${activeMenuChannelId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.status !== 204) {
+        const json = await res.json().catch(() => ({}))
+        alert(json.error || `Не удалось удалить (HTTP ${res.status})`)
+        return
+      }
+      // refresh list; if we deleted active chat, go back
+      if (activeChannelId === activeMenuChannelId) {
+        activeChannelId = null
+        document.getElementById('chat-title').textContent = ''
+        document.getElementById('messages-area').innerHTML = ''
+        setDialogOpen(false)
+      }
+      closeDialogMenu()
+      await loadChannels()
+    } catch {
+      alert('Не удалось удалить (сеть)')
+    } finally {
+      dialogMenuDel.textContent = prevText
+      dialogMenuDel.disabled = false
+    }
+  }
+  dialogMenuDel.onclick = run
+  dialogMenuDel.addEventListener('touchstart', run, { passive: false })
+  dialogMenuDel.addEventListener('touchend', run, { passive: false })
+}
 
 document.getElementById('message-input').onkeydown = (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {

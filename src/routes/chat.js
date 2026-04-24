@@ -89,6 +89,41 @@ router.post('/channels', requireAuth, async (req, res) => {
   }
 })
 
+// Удалить чат (кроме общего). Для direct: доступно только участникам.
+router.delete('/channels/:id', requireAuth, async (req, res) => {
+  try {
+    const channelId = parseInt(req.params.id, 10)
+    const actorUserId = parseInt(String(req.user.id), 10)
+    if (!Number.isFinite(channelId) || !Number.isFinite(actorUserId)) {
+      return res.status(400).json({ error: 'Некорректный запрос' })
+    }
+
+    const ch = await pool.query(
+      `
+      SELECT c.id, c.type
+      FROM channels c
+      WHERE c.id = $1
+        AND c.type = 'direct'
+        AND EXISTS (
+          SELECT 1 FROM channel_members cm
+          WHERE cm.channel_id = c.id AND cm.user_id = $2
+        )
+      `,
+      [channelId, actorUserId]
+    )
+
+    if (ch.rows.length === 0) {
+      return res.status(404).json({ error: 'Чат не найден' })
+    }
+
+    // For MVP: hard delete channel (members/messages cascade). This removes chat for both participants.
+    await pool.query(`DELETE FROM channels WHERE id = $1 AND type = 'direct'`, [channelId])
+    res.status(204).send()
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 router.get('/channels/:id/messages', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(`
