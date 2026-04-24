@@ -16,23 +16,40 @@ function canAccessChannelSql() {
 
 router.get('/channels', requireAuth, async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT c.*, 
-        (SELECT COUNT(*) FROM messages m 
-         WHERE m.channel_id = c.id 
+    const result = await pool.query(
+      `
+      SELECT
+        c.id,
+        c.type,
+        c.created_at,
+        CASE
+          WHEN c.type = 'direct' THEN COALESCE(
+            (
+              SELECT u.full_name
+              FROM channel_members cm
+              JOIN users u ON u.id = cm.user_id
+              WHERE cm.channel_id = c.id AND cm.user_id <> $1
+              LIMIT 1
+            ),
+            ''
+          )
+          ELSE COALESCE(c.name, '')
+        END AS name,
+        (SELECT COUNT(*) FROM messages m
+         WHERE m.channel_id = c.id
          AND m.created_at > COALESCE(
-           (SELECT last_read_at FROM channel_members 
-            WHERE channel_id = c.id AND user_id = $1), 
+           (SELECT last_read_at FROM channel_members
+            WHERE channel_id = c.id AND user_id = $1),
            '1970-01-01'
          )
         ) as unread_count
       FROM channels c
       WHERE c.type = 'general'
-      OR c.id IN (
-        SELECT channel_id FROM channel_members WHERE user_id = $1
-      )
+         OR c.id IN (SELECT channel_id FROM channel_members WHERE user_id = $1)
       ORDER BY c.created_at
-    `, [req.user.id])
+      `,
+      [req.user.id]
+    )
     res.json({ data: result.rows })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -50,7 +67,9 @@ router.post('/channels', requireAuth, async (req, res) => {
     `, [req.user.id, user_id])
 
     if (existing.rows.length > 0) {
-      return res.json({ data: existing.rows[0] })
+      const row = existing.rows[0]
+      const other = await pool.query(`SELECT full_name FROM users WHERE id = $1`, [user_id])
+      return res.json({ data: { ...row, name: other.rows[0]?.full_name || '' } })
     }
 
     const channel = await pool.query(
@@ -63,7 +82,8 @@ router.post('/channels', requireAuth, async (req, res) => {
       [channelId, req.user.id, user_id]
     )
 
-    res.status(201).json({ data: channel.rows[0] })
+    const other = await pool.query(`SELECT full_name FROM users WHERE id = $1`, [user_id])
+    res.status(201).json({ data: { ...channel.rows[0], name: other.rows[0]?.full_name || '' } })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

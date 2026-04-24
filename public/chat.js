@@ -141,6 +141,7 @@ async function openChannel(channelId, name) {
   document.getElementById('chat-title').textContent = name
   socket.emit('channel:join', channelId)
   setDialogOpen(true)
+  document.getElementById('search-results')?.classList.remove('show')
 
   const res = await fetch(`/api/chat/channels/${channelId}/messages`, {
     headers: { 'Authorization': `Bearer ${token}` }
@@ -234,6 +235,12 @@ async function sendMessage() {
   input.style.height = 'auto'
   pendingAttachments = []
   updateAttachButton()
+  // keep keyboard open and avoid viewport jumps on iOS
+  try {
+    input.focus({ preventScroll: true })
+  } catch {
+    input.focus()
+  }
 }
 
 const sendBtn = document.getElementById('send-btn')
@@ -498,6 +505,14 @@ document.getElementById('user-search').oninput = async function() {
   searchTimeout = setTimeout(async () => {
     await fetchAndShowUsers(q)
   }, 250)
+}
+
+document.getElementById('user-search').onfocus = async function() {
+  // On tap: show list even without typing (messenger-like)
+  const q = this.value.trim()
+  if (!q) {
+    await fetchAndShowUsers('')
+  }
 }
 
 async function fetchAndShowUsers(query) {
