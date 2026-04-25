@@ -31,6 +31,7 @@
     </div>
     <div class="chat-pinned" id="pinned-bar" style="display:none"></div>
     <div class="chat-messages" id="messages-area"></div>
+    <div class="chat-attachments-preview" id="attachments-preview" style="display:none"></div>
     <div class="chat-input-area">
       <input id="file-input" type="file" multiple style="display:none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.zip" />
       <button id="attach-btn" type="button" aria-label="Вложение">📎</button>
@@ -41,25 +42,25 @@
 </div>
 
 <div id="msg-menu" class="msg-menu" style="display:none">
-  <button type="button" id="msg-menu-pin">📌</button>
-  <button type="button" id="msg-menu-edit" style="display:none">✏️ Редактировать</button>
-  <button type="button" id="msg-menu-fwd">↪ Переслать</button>
-  <button type="button" id="msg-menu-del" style="display:none">🗑 Удалить</button>
+  <button type="button" id="msg-menu-pin">Закрепить</button>
+  <button type="button" id="msg-menu-edit" style="display:none">Редактировать</button>
+  <button type="button" id="msg-menu-fwd">Переслать</button>
+  <button type="button" id="msg-menu-del" style="display:none">Удалить</button>
   <button type="button" id="msg-menu-cancel">Отмена</button>
 </div>
 
 <div id="dialog-menu" class="msg-menu" style="display:none">
-  <button type="button" id="dialog-menu-del">🗑 Удалить чат</button>
+  <button type="button" id="dialog-menu-del">Удалить чат</button>
   <button type="button" id="dialog-menu-cancel">Отмена</button>
 </div>
 
 <div id="forward-menu" class="msg-menu" style="display:none; gap:10px">
-  <div style="font-size:13px;font-weight:500">Переслать в…</div>
+  <div style="font-size:13px;font-weight:500">Переслать в</div>
   <div id="forward-menu-list" style="display:flex;flex-direction:column;gap:8px;max-height:40vh;overflow:auto"></div>
   <button type="button" id="forward-menu-cancel">Отмена</button>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="chat.js?v=26"></script>
+<script src="chat.js?v=28"></script>
 </body>
 </html>

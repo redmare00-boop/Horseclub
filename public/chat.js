@@ -19,6 +19,8 @@ let activeMenuChannelId = null
 let activeForwardMessageId = null
 let editingMessageId = null
 let editingBackupHtml = null
+let oldestLoadedMessageId = null
+let hasMoreHistory = true
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -45,7 +47,7 @@ function renderPinnedBar(messages) {
   const last = pinned[pinned.length - 1]
   const text = last.content ? last.content : (last.attachments?.length ? `Вложение: ${last.attachments[0].name || 'файл'}` : 'Сообщение')
   bar.style.display = 'flex'
-  bar.innerHTML = `📌 <span style="font-weight:500">Закреплено:</span> <a href="#m-${last.id}">${escapeHtml(text).slice(0, 80)}</a>`
+  bar.innerHTML = `<span style="font-weight:500">Закреплено:</span> <a href="#m-${last.id}">${escapeHtml(text).slice(0, 80)}</a>`
 }
 
 function renderPinnedBarFromCache() {
@@ -58,6 +60,40 @@ function updateAttachButton() {
   const count = pendingAttachments.length
   btn.textContent = uploadInProgress ? '⏳' : (count > 0 ? `📎${count}` : '📎')
   btn.disabled = uploadInProgress
+}
+
+function renderAttachmentsPreview() {
+  const wrap = document.getElementById('attachments-preview')
+  if (!wrap) return
+  if (pendingAttachments.length === 0) {
+    wrap.style.display = 'none'
+    wrap.innerHTML = ''
+    return
+  }
+  wrap.style.display = 'flex'
+  wrap.innerHTML = pendingAttachments
+    .map((a, idx) => {
+      const name = escapeHtml(a?.name || 'файл')
+      return `<span class="attach-chip" data-idx="${idx}">
+        <span class="name">${name}</span>
+        <button type="button" class="remove" aria-label="Убрать">×</button>
+      </span>`
+    })
+    .join('')
+
+  wrap.querySelectorAll('.attach-chip .remove').forEach((btn) => {
+    const chip = btn.closest('.attach-chip')
+    const idx = Number(chip?.getAttribute('data-idx'))
+    const handler = (e) => {
+      e.preventDefault()
+      if (!Number.isFinite(idx)) return
+      pendingAttachments.splice(idx, 1)
+      updateAttachButton()
+      renderAttachmentsPreview()
+    }
+    btn.onclick = handler
+    btn.addEventListener('touchstart', handler, { passive: false })
+  })
 }
 
 function closeMsgMenu() {
@@ -78,7 +114,7 @@ function openMsgMenu(messageId) {
   activeMenuMessageId = messageId
   const msg = currentMessagesById.get(messageId)
   const pinned = !!msg?.is_pinned
-  pinBtn.textContent = pinned ? '📌 Открепить' : '📌 Закрепить'
+  pinBtn.textContent = pinned ? 'Открепить' : 'Закрепить'
 
   const canDelete = msg && (Number(msg.sender_id) === Number(user.id) || user.role === 'admin')
   delBtn.style.display = canDelete ? 'inline-flex' : 'none'
@@ -324,12 +360,23 @@ async function openChannel(channelId, name) {
     headers: { 'Authorization': `Bearer ${token}` }
   })
   const json = await res.json()
-  const messages = json.data || []
+  const messages = (json.data || []).slice().reverse()
   currentMessagesById.clear()
   messages.forEach((m) => currentMessagesById.set(m.id, m))
+  oldestLoadedMessageId = messages.length ? messages[0].id : null
+  hasMoreHistory = messages.length === 50
 
   const area = document.getElementById('messages-area')
   area.innerHTML = ''
+
+  if (hasMoreHistory) {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.textContent = 'Показать предыдущие'
+    btn.style.cssText = 'align-self:center;border:1px solid #ddd;background:#fff;border-radius:10px;padding:8px 10px;font-size:12px'
+    btn.onclick = loadOlderMessages
+    area.appendChild(btn)
+  }
 
   if (messages.length === 0) {
     area.innerHTML = '<div class="chat-empty">Нет сообщений — начните общение!</div>'
@@ -346,24 +393,44 @@ async function openChannel(channelId, name) {
   closeForwardMenu()
 }
 
-function appendMessage(m) {
+async function loadOlderMessages() {
+  if (!activeChannelId || !hasMoreHistory || !Number.isFinite(Number(oldestLoadedMessageId))) return
   const area = document.getElementById('messages-area')
-  const empty = area.querySelector('.chat-empty')
-  if (empty) empty.remove()
-  if (m?.id) currentMessagesById.set(m.id, m)
+  const firstBtn = area.querySelector('button')
+  if (firstBtn) firstBtn.disabled = true
 
-  const isMine = m.sender_id === user.id
-  const time = new Date(m.created_at).toLocaleTimeString('ru-RU', {
-    hour: '2-digit', minute: '2-digit'
+  const res = await fetch(`/api/chat/channels/${activeChannelId}/messages?before=${oldestLoadedMessageId}`, {
+    headers: { Authorization: `Bearer ${token}` }
   })
+  const json = await res.json().catch(() => ({}))
+  const older = (json.data || []).slice().reverse()
+
+  if (older.length === 0) {
+    hasMoreHistory = false
+    if (firstBtn) firstBtn.remove()
+    return
+  }
+
+  oldestLoadedMessageId = older[0].id
+  hasMoreHistory = older.length === 50
+
+  // Remove "load older" button if no more.
+  if (!hasMoreHistory && firstBtn) firstBtn.remove()
+  if (firstBtn) firstBtn.disabled = false
+
+  // Prepend older messages (after the "load older" button if present)
+  const anchor = area.firstChild
+  older.forEach((m) => {
+    const div = document.createElement('div')
+    appendMessageToContainer(div, m)
+    area.insertBefore(div.firstChild, anchor?.nextSibling || anchor)
+  })
+}
+
+function appendMessageToContainer(container, m) {
+  const isMine = m.sender_id === user.id
+  const time = new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
   const editedMark = m.edited_at ? ' (ред.)' : ''
-
-  const div = document.createElement('div')
-  div.className = 'message ' + (isMine ? 'mine' : 'other')
-  div.id = `m-${m.id}`
-  div.setAttribute('data-id', String(m.id))
-  div.setAttribute('data-pinned', m.is_pinned ? '1' : '0')
-
   const atts = Array.isArray(m.attachments) ? m.attachments : []
   const attsHtml = atts.length
     ? `<div class="message-attachments">
@@ -381,12 +448,28 @@ function appendMessage(m) {
       </div>`
     : ''
 
-  div.innerHTML = `
+  const wrap = document.createElement('div')
+  wrap.className = 'message ' + (isMine ? 'mine' : 'other')
+  wrap.id = `m-${m.id}`
+  wrap.setAttribute('data-id', String(m.id))
+  wrap.setAttribute('data-pinned', m.is_pinned ? '1' : '0')
+  wrap.innerHTML = `
     ${!isMine ? `<div class="message-author">${m.sender_name}</div>` : ''}
     <div class="message-bubble">${escapeHtml(m.content || '')}${attsHtml}</div>
     <div class="message-time">${time}${editedMark}</div>
   `
-  area.appendChild(div)
+  container.appendChild(wrap)
+}
+
+function appendMessage(m) {
+  const area = document.getElementById('messages-area')
+  const empty = area.querySelector('.chat-empty')
+  if (empty) empty.remove()
+  if (m?.id) currentMessagesById.set(m.id, m)
+
+  const container = document.createElement('div')
+  appendMessageToContainer(container, m)
+  area.appendChild(container.firstChild)
   area.scrollTop = area.scrollHeight
 }
 
@@ -415,6 +498,7 @@ async function sendMessage() {
   input.style.height = 'auto'
   pendingAttachments = []
   updateAttachButton()
+  renderAttachmentsPreview()
   // keep keyboard open and avoid viewport jumps on iOS
   try {
     input.focus({ preventScroll: true })
@@ -527,6 +611,7 @@ if (attachBtn && fileInput) {
       uploadInProgress = false
       fileInput.value = ''
       updateAttachButton()
+      renderAttachmentsPreview()
     }
   }
 }
@@ -607,7 +692,7 @@ if (menuPin) {
     if (!activeMenuMessageId) return
     menuPin.disabled = true
     const prevText = menuPin.textContent
-    menuPin.textContent = '⏳'
+    menuPin.textContent = '...'
     const msg = currentMessagesById.get(activeMenuMessageId)
     await togglePin(activeMenuMessageId, !msg?.is_pinned)
     menuPin.textContent = prevText
@@ -661,7 +746,7 @@ if (menuDel) {
     }
     menuDel.disabled = true
     const prevText = menuDel.textContent
-    menuDel.textContent = '⏳'
+    menuDel.textContent = '...'
     try {
       const res = await fetch(`/api/chat/messages/${activeMenuMessageId}`, {
         method: 'DELETE',
@@ -800,7 +885,7 @@ if (dialogMenuDel) {
     }
     dialogMenuDel.disabled = true
     const prevText = dialogMenuDel.textContent
-    dialogMenuDel.textContent = '⏳'
+    dialogMenuDel.textContent = '...'
     try {
       const res = await fetch(`/api/chat/channels/${activeMenuChannelId}`, {
         method: 'DELETE',

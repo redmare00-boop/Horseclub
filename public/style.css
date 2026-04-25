@@ -1012,6 +1012,45 @@ button.delete-btn:active:not(:disabled) {
   text-decoration: underline;
 }
 
+.chat-attachments-preview {
+  border-top: 1px solid #eee;
+  padding: 8px 10px;
+  background: #fff;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.attach-chip {
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+.attach-chip .name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attach-chip .remove {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  color: #999;
+}
+.attach-chip .remove:hover {
+  color: #333;
+  background: rgba(0,0,0,0.06);
+  border-radius: 6px;
+}
+
 .chat-input-area {
   border-top: 1px solid #e0e0e0;
   padding: 10px 14px;

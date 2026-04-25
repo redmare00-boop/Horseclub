@@ -46,7 +46,8 @@ router.get('/channels', requireAuth, async (req, res) => {
       FROM channels c
       WHERE c.type = 'general'
          OR c.id IN (SELECT channel_id FROM channel_members WHERE user_id = $1)
-      ORDER BY c.created_at
+      ORDER BY
+        COALESCE((SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.channel_id = c.id), c.created_at) DESC
       `,
       [req.user.id]
     )
@@ -133,14 +134,24 @@ router.delete('/channels/:id', requireAuth, async (req, res) => {
 
 router.get('/channels/:id/messages', requireAuth, async (req, res) => {
   try {
-    const result = await pool.query(`
+    const channelId = parseInt(req.params.id, 10)
+    const beforeId = req.query.before ? parseInt(String(req.query.before), 10) : null
+    const params = [channelId]
+    const beforeSql = Number.isFinite(beforeId) ? 'AND m.id < $2' : ''
+    if (Number.isFinite(beforeId)) params.push(beforeId)
+
+    const result = await pool.query(
+      `
       SELECT m.*, u.full_name as sender_name
       FROM messages m
       JOIN users u ON u.id = m.sender_id
       WHERE m.channel_id = $1 AND m.is_deleted = false
-      ORDER BY m.created_at ASC
+      ${beforeSql}
+      ORDER BY m.created_at DESC
       LIMIT 50
-    `, [req.params.id])
+      `,
+      params
+    )
     res.json({ data: result.rows })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -292,6 +303,10 @@ router.post('/messages/:id/pin', requireAuth, async (req, res) => {
     }
 
     const channelId = access.rows[0].channel_id
+    const channelType = access.rows[0].type
+    if (channelType === 'general' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Закреплять в общем чате может только админ' })
+    }
 
     const updated = await pool.query(
       `
