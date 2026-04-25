@@ -695,6 +695,46 @@ button.delete-btn:active:not(:disabled) {
   gap: 10px;
 }
 
+.chat-sidebar-toprow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-search-compact {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-search-compact input {
+  width: 100%;
+  padding: 8px 34px 8px 10px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+  outline: none;
+}
+
+.chat-search-compact input::placeholder {
+  color: #aaa;
+}
+
+.chat-search-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: #999;
+  pointer-events: none;
+  font-size: 16px;
+}
+
 .chat-plus {
   width: 28px;
   height: 28px;
@@ -713,34 +753,11 @@ button.delete-btn:active:not(:disabled) {
   background: #f3f3f3;
 }
 
-.chat-search {
-  padding: 8px 10px;
-  border-bottom: 1px solid #e0e0e0;
-  position: relative;
-}
-
-.chat-search input {
-  width: 100%;
-  padding: 6px 10px;
-  font-size: 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-}
-
-@media (max-width: 768px) {
-  /* iOS: предотвращаем авто-zoom при фокусе в инпутах (нужно >=16px) */
-  .chat-search input {
-    font-size: 16px;
-    line-height: 1.25;
-  }
-}
-
 .search-results {
   position: absolute;
   top: 100%;
-  left: 10px;
-  right: 10px;
+  left: 0;
+  right: 0;
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -1271,12 +1288,14 @@ button.delete-btn:active:not(:disabled) {
     overflow-y: auto;
   }
 
-  .chat-search {
-    padding: 6px 8px;
-  }
-
   .chat-sidebar-head {
     padding: 8px 12px;
+  }
+
+  /* iOS: предотвращаем авто-zoom при фокусе (нужно >=16px) */
+  .chat-search-compact input {
+    font-size: 16px;
+    line-height: 1.25;
   }
 
   .chat-main {

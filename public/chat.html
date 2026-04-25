@@ -12,14 +12,14 @@
   <div class="chat-sidebar">
     <div class="chat-sidebar-head">
       <a href="/" class="back-link">← Расписание</a>
-      <div class="chat-sidebar-title-row">
-        <span class="chat-sidebar-title">Сообщения</span>
+      <div class="chat-sidebar-toprow">
+        <div class="chat-search-compact">
+          <input type="text" id="user-search" placeholder="Найти..." aria-label="Найти">
+          <button type="button" class="chat-search-icon" tabindex="-1" aria-hidden="true">⌕</button>
+          <div id="search-results" class="search-results"></div>
+        </div>
         <button type="button" id="open-user-picker" class="chat-plus" aria-label="Новый чат">+</button>
       </div>
-    </div>
-    <div class="chat-search">
-      <input type="text" id="user-search" placeholder="Найти пользователя...">
-      <div id="search-results" class="search-results"></div>
     </div>
     <div class="chat-dialogs" id="dialogs-list"></div>
   </div>
@@ -32,7 +32,7 @@
     <div class="chat-pinned" id="pinned-bar" style="display:none"></div>
     <div class="chat-messages" id="messages-area"></div>
     <div class="chat-attachments-preview" id="attachments-preview" style="display:none"></div>
-    <div class="chat-input-area">
+    <div class="chat-input-area" id="composer">
       <input id="file-input" type="file" multiple style="display:none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.zip" />
       <button id="attach-btn" type="button" aria-label="Вложение">📎</button>
       <textarea id="message-input" placeholder="Написать сообщение..." rows="1"></textarea>
@@ -61,6 +61,6 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="chat.js?v=28"></script>
+<script src="chat.js?v=29"></script>
 </body>
 </html>

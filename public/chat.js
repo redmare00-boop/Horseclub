@@ -11,6 +11,7 @@ if (user?.must_change_password) {
 const socket = io()
 let activeChannelId = null
 let channels = []
+let allChannels = []
 let pendingAttachments = []
 let uploadInProgress = false
 const currentMessagesById = new Map()
@@ -131,6 +132,19 @@ function setDialogOpen(isOpen) {
   if (!layout || !backBtn) return
   layout.classList.toggle('chat--dialog-open', isOpen)
   backBtn.style.display = isOpen ? 'inline-flex' : 'none'
+  updateComposerVisibility(isOpen)
+}
+
+function updateComposerVisibility(isDialogOpen) {
+  const composer = document.getElementById('composer')
+  const preview = document.getElementById('attachments-preview')
+  if (composer) composer.style.display = isDialogOpen ? 'flex' : 'none'
+  if (!isDialogOpen) {
+    pendingAttachments = []
+    updateAttachButton()
+    renderAttachmentsPreview()
+    if (preview) preview.style.display = 'none'
+  }
 }
 
 function closeDialogMenu() {
@@ -316,7 +330,8 @@ async function loadChannels() {
     headers: { 'Authorization': `Bearer ${token}` }
   })
   const json = await res.json()
-  channels = json.data || []
+  allChannels = json.data || []
+  channels = allChannels
   renderDialogs()
 
   // Open requested direct chat (from schedule) once channels are loaded.
@@ -952,10 +967,16 @@ document.getElementById('user-search').oninput = async function() {
 
   if (!q) {
     results.classList.remove('show')
+    channels = allChannels
+    renderDialogs()
     return
   }
 
   searchTimeout = setTimeout(async () => {
+    // filter dialogs by phrase
+    const ql = q.toLowerCase()
+    channels = allChannels.filter((c) => String(c.name || '').toLowerCase().includes(ql))
+    renderDialogs()
     await fetchAndShowUsers(q)
   }, 250)
 }
@@ -1019,6 +1040,7 @@ if (plusBtn) {
 }
 
 loadChannels()
+updateComposerVisibility(false)
 
 document.getElementById('back-to-dialogs').onclick = () => {
   activeChannelId = null
