@@ -20,7 +20,7 @@ function looksLikePlaceholder(value) {
 
 const config = {
   port: Number(process.env.PORT || 3000),
-  jwtSecret: process.env.JWT_SECRET || 'dev_insecure_secret_change_me',
+  jwtSecret: process.env.JWT_SECRET || '',
   databaseUrl: looksLikePlaceholder(process.env.DATABASE_URL)
     ? ''
     : (process.env.DATABASE_URL || process.env.PG_URL || ''),
@@ -34,8 +34,22 @@ const config = {
 }
 
 if (process.env.NODE_ENV === 'production') {
-  required('JWT_SECRET', process.env.JWT_SECRET)
+  // DATABASE_URL is critical in production.
   required('DATABASE_URL', process.env.DATABASE_URL)
+
+  // JWT_SECRET should be set in production, but don't hard-crash the whole service:
+  // Railway sometimes doesn't inject variables as expected on first deploy.
+  // If missing, generate a temporary secret (tokens will reset on restart) and warn loudly.
+  if (!process.env.JWT_SECRET) {
+    const crypto = require('crypto')
+    config.jwtSecret = crypto.randomBytes(32).toString('hex')
+    // eslint-disable-next-line no-console
+    console.warn('[config] JWT_SECRET is missing in production; using a temporary secret. Set JWT_SECRET in Railway Variables ASAP.')
+  } else {
+    config.jwtSecret = process.env.JWT_SECRET
+  }
+} else {
+  config.jwtSecret = process.env.JWT_SECRET || 'dev_insecure_secret_change_me'
 }
 
 module.exports = { config }
