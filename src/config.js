@@ -34,10 +34,14 @@ const config = {
 }
 
 if (process.env.NODE_ENV === 'production') {
-  // DATABASE_URL is critical in production.
-  // Railway sometimes exposes the connection string as PG_URL or via references that don't
-  // materialize as DATABASE_URL in the runtime environment. Accept either.
-  required('DATABASE_URL', process.env.DATABASE_URL || process.env.PG_URL)
+  // DB config is critical in production.
+  // On Railway, sometimes DATABASE_URL/PG_URL are present in UI but not in runtime,
+  // while PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD are injected reliably.
+  const hasUrl = !!(process.env.DATABASE_URL || process.env.PG_URL)
+  const hasPgParts = !!(process.env.PGHOST && process.env.PGDATABASE && process.env.PGUSER)
+  if (!hasUrl && !hasPgParts) {
+    required('DATABASE_URL', '') // keep error shape stable
+  }
 
   // JWT_SECRET should be set in production, but don't hard-crash the whole service:
   // Railway sometimes doesn't inject variables as expected on first deploy.
