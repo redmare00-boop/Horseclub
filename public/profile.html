@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Мой профиль — Horseclub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="topbar">
+    <h1>Профиль</h1>
+    <div class="user-info">
+      <button id="back-btn" class="profile-btn" type="button" data-nav-back aria-label="Назад" title="Назад">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6"></path>
+        </svg>
+      </button>
+      <a href="/" class="profile-btn" aria-label="Домой" title="Домой">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 10.5L12 3l9 7.5"></path>
+          <path d="M5.5 9.5V21h13V9.5"></path>
+          <path d="M10 21v-7h4v7"></path>
+        </svg>
+      </a>
+      <a href="/chat.html" class="profile-btn" aria-label="Чат" title="Чат">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 5h16v10H7l-3 3V5z"></path>
+        </svg>
+      </a>
+      <span id="user-name"></span>
+    </div>
+  </div>
+
+  <div class="schedule-wrap" style="max-width:720px;margin:0 auto">
+    <div class="login-card" style="width:100%">
+      <div id="err" class="login-error" style="display:none"></div>
+      <div id="ok" class="login-success" style="display:none"></div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div class="user-avatar user-avatar--placeholder" id="profile-avatar" style="width:56px;height:56px;border-radius:16px"></div>
+        <div style="min-width:0">
+          <div style="font-size:14px;font-weight:600;color:#333" id="profile-title"></div>
+          <div style="font-size:12px;color:#999" id="profile-sub"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Никнейм</label>
+        <input id="f-nickname" type="text" placeholder="Маша">
+      </div>
+
+      <div class="field">
+        <label>Статус</label>
+        <select id="f-status">
+          <option value="" selected>—</option>
+          <option value="коневладелец">Коневладелец</option>
+          <option value="тренер">Тренер</option>
+          <option value="руководитель клуба">Руководитель клуба</option>
+          <option value="ветврач">Ветврач</option>
+          <option value="конюх">Конюх</option>
+          <option value="администратор">Администратор</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Телефон (публичный)</label>
+        <input id="f-phone" type="tel" placeholder="+7...">
+      </div>
+
+      <div class="field">
+        <label>Аватар (до 7 МБ)</label>
+        <input id="f-avatar" type="file" accept="image/*">
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+        <button id="save-btn" style="padding:9px 12px;background:#534AB7;color:#fff;border:none;border-radius:8px;font-weight:600">Сохранить</button>
+        <a href="/horses.html?scope=mine" id="my-horses-btn" style="padding:9px 12px;background:#fff;border:1px solid #ddd;border-radius:8px;text-decoration:none;color:#333;display:inline-flex;align-items:center">Мои лошади</a>
+        <button id="logout-btn" style="padding:9px 12px;background:#fff;border:1px solid #ddd;border-radius:8px">Выйти</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="profile.js"></script>
+</body>
+</html>
+

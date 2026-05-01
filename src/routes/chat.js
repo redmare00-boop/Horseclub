@@ -3,6 +3,58 @@ const router = express.Router()
 const pool = require('../db/pool')
 const { requireAuth } = require('../middleware/auth')
 
+const columnCache = new Map() // key: "table.column" -> boolean
+async function hasColumn(table, column) {
+  const key = `${table}.${column}`
+  if (columnCache.has(key)) return columnCache.get(key)
+  const r = await pool.query(
+    `
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = $1
+      AND column_name = $2
+    LIMIT 1
+    `,
+    [table, column]
+  )
+  const ok = r.rows.length > 0
+  columnCache.set(key, ok)
+  return ok
+}
+
+async function ensureUserScopedTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS message_hidden (
+      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      hidden_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (message_id, user_id)
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS message_hidden_by_user ON message_hidden (user_id, hidden_at DESC)`)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS message_pins (
+      message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pinned_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (message_id, user_id)
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS message_pins_by_user ON message_pins (user_id, pinned_at DESC)`)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS channel_hidden (
+      channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      hidden_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (channel_id, user_id)
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS channel_hidden_by_user ON channel_hidden (user_id, hidden_at DESC)`)
+}
+
 function canAccessChannelSql() {
   // user can access general, or is a member
   return `
@@ -16,6 +68,17 @@ function canAccessChannelSql() {
 
 router.get('/channels', requireAuth, async (req, res) => {
   try {
+    await ensureUserScopedTables()
+    const hasDeletedAt = await hasColumn('users', 'deleted_at')
+    const hasAvatar = await hasColumn('users', 'avatar_url')
+    const otherDeletedSql = hasDeletedAt ? `COALESCE((u.deleted_at IS NOT NULL), false)` : `false`
+    const otherNameSql = hasDeletedAt
+      ? `CASE WHEN u.deleted_at IS NOT NULL THEN 'Удаленный аккаунт' ELSE COALESCE(u.full_name, '') END`
+      : `COALESCE(u.full_name, '')`
+    const otherAvatarSql = hasAvatar
+      ? (hasDeletedAt ? `CASE WHEN u.deleted_at IS NOT NULL THEN '' ELSE COALESCE(u.avatar_url, '') END` : `COALESCE(u.avatar_url, '')`)
+      : `''`
+
     const result = await pool.query(
       `
       SELECT
@@ -23,18 +86,44 @@ router.get('/channels', requireAuth, async (req, res) => {
         c.type,
         c.created_at,
         CASE
-          WHEN c.type = 'direct' THEN COALESCE(
-            (
-              SELECT u.full_name
-              FROM channel_members cm
-              JOIN users u ON u.id = cm.user_id
-              WHERE cm.channel_id = c.id AND cm.user_id <> $1
-              LIMIT 1
-            ),
-            ''
+          WHEN c.type = 'direct' THEN (
+            SELECT cm.user_id
+            FROM channel_members cm
+            WHERE cm.channel_id = c.id AND cm.user_id <> $1
+            LIMIT 1
           )
+          ELSE NULL
+        END AS other_user_id,
+        CASE
+          WHEN c.type = 'direct' THEN COALESCE((
+            SELECT ${otherNameSql}
+            FROM channel_members cm
+            LEFT JOIN users u ON u.id = cm.user_id
+            WHERE cm.channel_id = c.id AND cm.user_id <> $1
+            LIMIT 1
+          ), '')
           ELSE COALESCE(c.name, '')
         END AS name,
+        CASE
+          WHEN c.type = 'direct' THEN COALESCE((
+            SELECT ${otherDeletedSql}
+            FROM channel_members cm
+            LEFT JOIN users u ON u.id = cm.user_id
+            WHERE cm.channel_id = c.id AND cm.user_id <> $1
+            LIMIT 1
+          ), false)
+          ELSE false
+        END AS other_deleted,
+        CASE
+          WHEN c.type = 'direct' THEN COALESCE((
+            SELECT ${otherAvatarSql}
+            FROM channel_members cm
+            LEFT JOIN users u ON u.id = cm.user_id
+            WHERE cm.channel_id = c.id AND cm.user_id <> $1
+            LIMIT 1
+          ), '')
+          ELSE ''
+        END AS other_avatar_url,
         (SELECT COUNT(*) FROM messages m
          WHERE m.channel_id = c.id
          AND m.created_at > COALESCE(
@@ -46,6 +135,10 @@ router.get('/channels', requireAuth, async (req, res) => {
       FROM channels c
       WHERE c.type = 'general'
          OR c.id IN (SELECT channel_id FROM channel_members WHERE user_id = $1)
+      AND NOT EXISTS (
+        SELECT 1 FROM channel_hidden ch
+        WHERE ch.channel_id = c.id AND ch.user_id = $1
+      )
       ORDER BY
         COALESCE((SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.channel_id = c.id), c.created_at) DESC
       `,
@@ -69,8 +162,26 @@ router.post('/channels', requireAuth, async (req, res) => {
 
     if (existing.rows.length > 0) {
       const row = existing.rows[0]
-      const other = await pool.query(`SELECT full_name FROM users WHERE id = $1`, [user_id])
-      return res.json({ data: { ...row, name: other.rows[0]?.full_name || '' } })
+      // If user previously hid this dialog, unhide it for them.
+      await ensureUserScopedTables()
+      await pool.query(`DELETE FROM channel_hidden WHERE channel_id = $1 AND user_id = $2`, [row.id, req.user.id])
+      const hasDeletedAt = await hasColumn('users', 'deleted_at')
+      const hasAvatar = await hasColumn('users', 'avatar_url')
+      const nameSql = hasDeletedAt ? `CASE WHEN deleted_at IS NOT NULL THEN 'Удаленный аккаунт' ELSE full_name END` : `full_name`
+      const deletedSql = hasDeletedAt ? `COALESCE((deleted_at IS NOT NULL), false) as deleted` : `false as deleted`
+      const avatarSql = hasAvatar
+        ? (hasDeletedAt ? `CASE WHEN deleted_at IS NOT NULL THEN '' ELSE COALESCE(avatar_url, '') END as avatar_url` : `COALESCE(avatar_url, '') as avatar_url`)
+        : `'' as avatar_url`
+      const other = await pool.query(`SELECT ${nameSql} as name, ${deletedSql}, ${avatarSql} FROM users WHERE id = $1`, [user_id])
+      return res.json({
+        data: {
+          ...row,
+          name: other.rows[0]?.name || '',
+          other_user_id: user_id,
+          other_deleted: !!other.rows[0]?.deleted,
+          other_avatar_url: other.rows[0]?.avatar_url || ''
+        }
+      })
     }
 
     const channel = await pool.query(
@@ -83,8 +194,26 @@ router.post('/channels', requireAuth, async (req, res) => {
       [channelId, req.user.id, user_id]
     )
 
-    const other = await pool.query(`SELECT full_name FROM users WHERE id = $1`, [user_id])
-    res.status(201).json({ data: { ...channel.rows[0], name: other.rows[0]?.full_name || '' } })
+    await ensureUserScopedTables()
+    await pool.query(`DELETE FROM channel_hidden WHERE channel_id = $1 AND user_id = $2`, [channelId, req.user.id])
+
+    const hasDeletedAt = await hasColumn('users', 'deleted_at')
+    const hasAvatar = await hasColumn('users', 'avatar_url')
+    const nameSql = hasDeletedAt ? `CASE WHEN deleted_at IS NOT NULL THEN 'Удаленный аккаунт' ELSE full_name END` : `full_name`
+    const deletedSql = hasDeletedAt ? `COALESCE((deleted_at IS NOT NULL), false) as deleted` : `false as deleted`
+    const avatarSql = hasAvatar
+      ? (hasDeletedAt ? `CASE WHEN deleted_at IS NOT NULL THEN '' ELSE COALESCE(avatar_url, '') END as avatar_url` : `COALESCE(avatar_url, '') as avatar_url`)
+      : `'' as avatar_url`
+    const other = await pool.query(`SELECT ${nameSql} as name, ${deletedSql}, ${avatarSql} FROM users WHERE id = $1`, [user_id])
+    res.status(201).json({
+      data: {
+        ...channel.rows[0],
+        name: other.rows[0]?.name || '',
+        other_user_id: user_id,
+        other_deleted: !!other.rows[0]?.deleted,
+        other_avatar_url: other.rows[0]?.avatar_url || ''
+      }
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -95,8 +224,31 @@ router.delete('/channels/:id', requireAuth, async (req, res) => {
   try {
     const channelId = parseInt(req.params.id, 10)
     const actorUserId = parseInt(String(req.user.id), 10)
+    const scope = String(req.body?.scope || req.query?.scope || 'all')
     if (!Number.isFinite(channelId) || !Number.isFinite(actorUserId)) {
       return res.status(400).json({ error: 'Некорректный запрос' })
+    }
+
+    if (scope === 'me') {
+      // Hide dialog for current user only.
+      await ensureUserScopedTables()
+      const ok = await pool.query(
+        `
+        SELECT 1
+        FROM channels c
+        WHERE c.id = $1
+          AND (c.type = 'general' OR EXISTS (
+            SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $2
+          ))
+        `,
+        [channelId, actorUserId]
+      )
+      if (!ok.rows.length) return res.status(404).json({ error: 'Чат не найден' })
+      await pool.query(
+        `INSERT INTO channel_hidden (channel_id, user_id) VALUES ($1, $2) ON CONFLICT (channel_id, user_id) DO UPDATE SET hidden_at = NOW()`,
+        [channelId, actorUserId]
+      )
+      return res.status(204).send()
     }
 
     const ch = await pool.query(
@@ -136,21 +288,46 @@ router.get('/channels/:id/messages', requireAuth, async (req, res) => {
   try {
     const channelId = parseInt(req.params.id, 10)
     const beforeId = req.query.before ? parseInt(String(req.query.before), 10) : null
+    const actorUserId = parseInt(String(req.user.id), 10)
     const params = [channelId]
     const beforeSql = Number.isFinite(beforeId) ? 'AND m.id < $2' : ''
     if (Number.isFinite(beforeId)) params.push(beforeId)
 
+    await ensureUserScopedTables()
+    const actorIdx = params.length + 1
+    const hasDeletedAt = await hasColumn('users', 'deleted_at')
+    const hasAvatar = await hasColumn('users', 'avatar_url')
+    const senderDeletedSql = hasDeletedAt ? `COALESCE((u.deleted_at IS NOT NULL), false)` : `false`
+    const senderNameSql = hasDeletedAt
+      ? `CASE WHEN u.deleted_at IS NOT NULL THEN 'Удаленный аккаунт' ELSE COALESCE(u.full_name, '') END`
+      : `COALESCE(u.full_name, '')`
+    const senderAvatarSql = hasAvatar
+      ? (hasDeletedAt ? `CASE WHEN u.deleted_at IS NOT NULL THEN '' ELSE COALESCE(u.avatar_url, '') END` : `COALESCE(u.avatar_url, '')`)
+      : `''`
+
     const result = await pool.query(
       `
-      SELECT m.*, u.full_name as sender_name
+      SELECT
+        m.*,
+        ${senderNameSql} as sender_name,
+        ${senderDeletedSql} as sender_deleted,
+        ${senderAvatarSql} as sender_avatar_url,
+        EXISTS (
+          SELECT 1 FROM message_pins mp
+          WHERE mp.message_id = m.id AND mp.user_id = $${actorIdx}
+        ) as my_pinned
       FROM messages m
-      JOIN users u ON u.id = m.sender_id
+      LEFT JOIN users u ON u.id = m.sender_id
       WHERE m.channel_id = $1 AND m.is_deleted = false
+        AND NOT EXISTS (
+          SELECT 1 FROM message_hidden mh
+          WHERE mh.message_id = m.id AND mh.user_id = $${actorIdx}
+        )
       ${beforeSql}
       ORDER BY m.created_at DESC
       LIMIT 50
       `,
-      params
+      [...params, actorUserId]
     )
     res.json({ data: result.rows })
   } catch (err) {
@@ -229,6 +406,10 @@ router.delete('/messages/:id', requireAuth, async (req, res) => {
   try {
     const messageId = parseInt(req.params.id, 10)
     const actorUserId = parseInt(String(req.user.id), 10)
+    const scope = String(req.body?.scope || req.query?.scope || 'all')
+    if (!Number.isFinite(messageId)) {
+      return res.status(400).json({ error: 'Некорректный запрос' })
+    }
     if (!Number.isFinite(actorUserId)) {
       return res.status(401).json({ error: 'Необходима авторизация' })
     }
@@ -251,6 +432,17 @@ router.delete('/messages/:id', requireAuth, async (req, res) => {
     const isAdmin = req.user.role === 'admin'
     if (!isAdmin && Number(row.sender_id) !== actorUserId) {
       return res.status(403).json({ error: 'Недостаточно прав' })
+    }
+
+    // Delete for me: hide only for current user (keep message for others)
+    if (scope === 'me') {
+      await ensureUserScopedTables()
+      await pool.query(
+        `INSERT INTO message_hidden (message_id, user_id) VALUES ($1, $2)
+         ON CONFLICT (message_id, user_id) DO UPDATE SET hidden_at = NOW()`,
+        [messageId, actorUserId]
+      )
+      return res.status(200).json({ data: { id: messageId, channel_id: row.channel_id, scope: 'me' } })
     }
 
     const updated = await pool.query(
@@ -281,8 +473,12 @@ router.post('/messages/:id/pin', requireAuth, async (req, res) => {
   try {
     const messageId = parseInt(req.params.id, 10)
     const { pinned } = req.body || {}
+    const scope = String(req.body?.scope || 'all')
     const shouldPin = !!pinned
     const actorUserId = parseInt(String(req.user.id), 10)
+    if (!Number.isFinite(messageId)) {
+      return res.status(400).json({ error: 'Некорректный запрос' })
+    }
     if (!Number.isFinite(actorUserId)) {
       return res.status(401).json({ error: 'Необходима авторизация' })
     }
@@ -306,6 +502,21 @@ router.post('/messages/:id/pin', requireAuth, async (req, res) => {
     const channelType = access.rows[0].type
     if (channelType === 'general' && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Закреплять в общем чате может только админ' })
+    }
+
+    // Pin for me: store in message_pins (visible only to current user)
+    if (scope === 'me') {
+      await ensureUserScopedTables()
+      if (shouldPin) {
+        await pool.query(
+          `INSERT INTO message_pins (message_id, user_id) VALUES ($1, $2)
+           ON CONFLICT (message_id, user_id) DO UPDATE SET pinned_at = NOW()`,
+          [messageId, actorUserId]
+        )
+      } else {
+        await pool.query(`DELETE FROM message_pins WHERE message_id = $1 AND user_id = $2`, [messageId, actorUserId])
+      }
+      return res.json({ data: { id: messageId, channel_id: channelId, my_pinned: shouldPin, scope: 'me' } })
     }
 
     const updated = await pool.query(
@@ -360,6 +571,64 @@ router.get('/users', requireAuth, async (req, res) => {
       LIMIT 50
     `, [`%${search || ''}%`, req.user.id])
     res.json({ data: result.rows })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Global search like messenger: users first, then message contents
+router.get('/search', requireAuth, async (req, res) => {
+  try {
+    const q = String(req.query.q ?? '').trim()
+    if (!q) return res.json({ data: { users: [], messages: [] } })
+
+    const like = `%${q}%`
+
+    const usersRes = await pool.query(
+      `
+      SELECT id, full_name
+      FROM users
+      WHERE id <> $2 AND full_name ILIKE $1
+      ORDER BY full_name
+      LIMIT 20
+      `,
+      [like, req.user.id]
+    )
+
+    const msgRes = await pool.query(
+      `
+      SELECT
+        m.id,
+        m.channel_id,
+        m.content,
+        m.created_at,
+        u.full_name as sender_name,
+        CASE
+          WHEN c.type = 'direct' THEN COALESCE(
+            (
+              SELECT u2.full_name
+              FROM channel_members cm
+              JOIN users u2 ON u2.id = cm.user_id
+              WHERE cm.channel_id = c.id AND cm.user_id <> $2
+              LIMIT 1
+            ),
+            ''
+          )
+          ELSE COALESCE(c.name, '')
+        END AS channel_name
+      FROM messages m
+      JOIN channels c ON c.id = m.channel_id
+      JOIN users u ON u.id = m.sender_id
+      WHERE m.is_deleted = false
+        AND m.content ILIKE $1
+        AND (${canAccessChannelSql()})
+      ORDER BY m.created_at DESC
+      LIMIT 20
+      `,
+      [like, req.user.id]
+    )
+
+    res.json({ data: { users: usersRes.rows, messages: msgRes.rows } })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

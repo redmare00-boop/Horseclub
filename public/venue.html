@@ -11,12 +11,27 @@
 <div class="topbar">
   <h1 id="venue-title">Площадка</h1>
   <div class="user-info">
-    <a href="/" class="chat-link">← Площадки</a>
+    <button type="button" class="profile-btn" data-nav-back aria-label="Назад" title="Назад">
+      <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6"></path>
+      </svg>
+    </button>
+    <a href="/" class="profile-btn" aria-label="Домой" title="Домой">
+      <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 10.5L12 3l9 7.5"></path>
+        <path d="M5.5 9.5V21h13V9.5"></path>
+        <path d="M10 21v-7h4v7"></path>
+      </svg>
+    </a>
     <span id="user-name"></span>
-    <a href="/admin-users.html" class="chat-link" id="admin-users-link" style="display:none">Пользователи</a>
-    <a href="/admin-venues.html" class="chat-link" id="admin-venues-link" style="display:none">Площадки</a>
+    <a href="/admin.html" class="chat-link" id="admin-panel-link" style="display:none">Админка</a>
     <a href="/chat.html" class="chat-link">Чат</a>
-    <button id="logout-btn">Выйти</button>
+    <a href="/profile.html" class="profile-btn" aria-label="Профиль" title="Профиль">
+      <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20 21a8 8 0 0 0-16 0"></path>
+        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"></path>
+      </svg>
+    </a>
   </div>
 </div>
 
@@ -98,6 +113,7 @@
   </div>
 </div>
 
+<script src="nav.js"></script>
 <script src="venue.js"></script>
 </body>
 </html>

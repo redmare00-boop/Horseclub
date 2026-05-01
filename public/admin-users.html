@@ -11,10 +11,18 @@
   <div class="topbar">
     <h1>Пользователи</h1>
     <div class="user-info">
-      <a href="/" class="chat-link">← Расписание</a>
-      <a href="/admin-venues.html" class="chat-link">Площадки</a>
+      <button type="button" class="profile-btn" data-nav-back aria-label="Назад" title="Назад">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6"></path>
+        </svg>
+      </button>
       <span id="user-name"></span>
-      <button id="logout-btn">Выйти</button>
+      <a href="/profile.html" class="profile-btn" aria-label="Профиль" title="Профиль">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 21a8 8 0 0 0-16 0"></path>
+          <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"></path>
+        </svg>
+      </a>
     </div>
   </div>
 
@@ -34,34 +42,46 @@
 
       <div class="field">
         <label>Логин</label>
-        <input id="login" type="text" placeholder="maria">
+        <input id="login" type="text" placeholder="maria-ivanova (можно оставить пустым — сгенерируем)">
       </div>
 
-      <div class="field">
-        <label>Пароль</label>
-        <input id="password" type="password" placeholder="минимум 6 символов">
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label>Статус</label>
+          <select id="status">
+            <option value="" selected>—</option>
+            <option value="коневладелец">Коневладелец</option>
+            <option value="тренер">Тренер</option>
+            <option value="руководитель клуба">Руководитель клуба</option>
+            <option value="ветврач">Ветврач</option>
+            <option value="конюх">Конюх</option>
+            <option value="администратор">Администратор</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0">
+          <label>Роль</label>
+          <select id="role">
+            <option value="user" selected>Пользователь</option>
+            <option value="admin">Администратор</option>
+          </select>
+        </div>
       </div>
 
-      <div class="field" style="display:flex;align-items:center;gap:8px">
-        <input id="invite" type="checkbox" style="width:auto">
-        <label style="margin:0;font-weight:500;color:#333">Создать инвайт‑ссылку (без пароля)</label>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button id="create-btn" style="flex:1;padding:12px 14px;background:#534AB7;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600">Сохранить</button>
+        <button id="cancel-create" style="padding:12px 14px;background:#fff;border:1px solid #ddd;border-radius:10px">Отмена</button>
       </div>
-
-      <div class="field">
-        <label>Роль</label>
-        <select id="role">
-          <option value="user" selected>Пользователь</option>
-          <option value="admin">Администратор</option>
-        </select>
-      </div>
-
-      <button id="create-btn">Создать</button>
     </div>
 
     <div class="login-card" style="width:100%;margin-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
         <h2 style="margin-bottom:8px">Список пользователей</h2>
-        <button id="refresh-btn" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">Обновить</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select id="users-filter" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">
+            <option value="active" selected>Активные</option>
+            <option value="archived">Архив</option>
+          </select>
+        </div>
       </div>
       <div id="users-list" style="font-size:13px;color:#666"></div>
     </div>
@@ -82,23 +102,21 @@
     </div>
   </div>
 
-  <div class="modal-bg" id="reset-modal" style="display:none">
+  <div class="modal-bg" id="user-view-modal" style="display:none">
     <div class="modal">
       <div class="modal-header">
-        <span class="modal-title">Сброс пароля</span>
-        <button class="modal-close" id="reset-close">✕</button>
+        <span class="modal-title">Профиль пользователя</span>
+        <button class="modal-close" id="user-view-close">✕</button>
       </div>
-      <div class="field">
-        <label>Новый пароль</label>
-        <input type="password" id="reset-password" placeholder="минимум 6 символов">
-      </div>
+      <div id="user-view-body"></div>
       <div class="modal-buttons">
-        <button id="reset-save">Сохранить</button>
-        <button id="reset-cancel">Отмена</button>
+        <button id="user-delete" style="background:#fff;border:1px solid #f0b4b4;color:#A32D2D">В архив</button>
+        <button id="user-view-cancel">Закрыть</button>
       </div>
     </div>
   </div>
 
   <script src="admin-users.js"></script>
+  <script src="nav.js"></script>
 </body>
 </html>

@@ -7,15 +7,27 @@ CREATE TABLE IF NOT EXISTS users (
   login         TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role          TEXT NOT NULL DEFAULT 'user',
+  nickname      TEXT,
+  avatar_url    TEXT,
+  status        TEXT,
+  phone         TEXT,
+  deleted_at    TIMESTAMPTZ,
   must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- If the table existed earlier with fewer columns, add missing ones.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS invites (
   id           SERIAL PRIMARY KEY,
+  token        TEXT,
   token_hash   TEXT NOT NULL UNIQUE,
   full_name    TEXT NOT NULL,
   login        TEXT NOT NULL,
@@ -28,6 +40,9 @@ CREATE TABLE IF NOT EXISTS invites (
 
 CREATE INDEX IF NOT EXISTS invites_by_login ON invites (login);
 
+-- Backward-compatible: store plain invite token so admins can re-copy the link later.
+ALTER TABLE invites ADD COLUMN IF NOT EXISTS token TEXT;
+
 CREATE TABLE IF NOT EXISTS venues (
   id                        SERIAL PRIMARY KEY,
   name                      TEXT NOT NULL UNIQUE,
@@ -39,6 +54,25 @@ CREATE TABLE IF NOT EXISTS venues (
 );
 
 CREATE INDEX IF NOT EXISTS venues_active ON venues (is_active);
+
+-- Club profile (single row, managed by admin)
+CREATE TABLE IF NOT EXISTS club (
+  id         SERIAL PRIMARY KEY,
+  name       TEXT NOT NULL DEFAULT 'Конный клуб',
+  logo_url   TEXT,
+  address    TEXT,
+  coords     TEXT,
+  mercury_id TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE club ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE club ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE club ADD COLUMN IF NOT EXISTS coords TEXT;
+ALTER TABLE club ADD COLUMN IF NOT EXISTS mercury_id TEXT;
+ALTER TABLE club ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+INSERT INTO club (id, name)
+VALUES (1, 'Конный клуб')
+ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS bookings (
   id           SERIAL PRIMARY KEY,
@@ -61,9 +95,11 @@ CREATE TABLE IF NOT EXISTS horses (
   breed           TEXT,
   birth_year      INTEGER,
   color           TEXT,
+  sex             TEXT,
   chip_number     TEXT,
   passport_number TEXT,
   owner           TEXT,
+  owner_user_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
   photo_url       TEXT,
   notes           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -73,9 +109,11 @@ CREATE TABLE IF NOT EXISTS horses (
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS breed TEXT;
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS birth_year INTEGER;
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS color TEXT;
+ALTER TABLE horses ADD COLUMN IF NOT EXISTS sex TEXT;
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS chip_number TEXT;
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS passport_number TEXT;
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS owner TEXT;
+ALTER TABLE horses ADD COLUMN IF NOT EXISTS owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS photo_url TEXT;
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS notes TEXT;
 ALTER TABLE horses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
@@ -84,12 +122,15 @@ CREATE TABLE IF NOT EXISTS horse_medical (
   id           SERIAL PRIMARY KEY,
   horse_id     INTEGER NOT NULL REFERENCES horses(id) ON DELETE CASCADE,
   record_type  TEXT NOT NULL,
+  record_subtype TEXT,
   event_date   DATE NOT NULL,
   next_date    DATE,
   description  TEXT,
   performed_by TEXT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE horse_medical ADD COLUMN IF NOT EXISTS record_subtype TEXT;
 
 CREATE INDEX IF NOT EXISTS horse_medical_by_horse ON horse_medical (horse_id, event_date DESC);
 
@@ -123,6 +164,32 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE INDEX IF NOT EXISTS messages_by_channel ON messages (channel_id, created_at);
+
+-- Per-user message actions ("у меня"): hide message / pin message
+CREATE TABLE IF NOT EXISTS message_hidden (
+  message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  hidden_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (message_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS message_hidden_by_user ON message_hidden (user_id, hidden_at DESC);
+
+CREATE TABLE IF NOT EXISTS message_pins (
+  message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pinned_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (message_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS message_pins_by_user ON message_pins (user_id, pinned_at DESC);
+
+-- Per-user channel action ("у меня"): hide dialog
+CREATE TABLE IF NOT EXISTS channel_hidden (
+  channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  hidden_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (channel_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS channel_hidden_by_user ON channel_hidden (user_id, hidden_at DESC);
 
 -- Ensure FK constraints have ON DELETE CASCADE (older DBs may have been created without it)
 ALTER TABLE channel_members DROP CONSTRAINT IF EXISTS channel_members_channel_id_fkey;

@@ -6,11 +6,10 @@ if (user?.must_change_password) window.location.href = '/change-password.html'
 if (user?.role !== 'admin') window.location.href = '/'
 
 document.getElementById('user-name').textContent = user ? user.full_name : ''
-document.getElementById('logout-btn').onclick = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  window.location.href = '/login.html'
-}
+
+document.querySelector('[aria-label="Профиль"]')?.addEventListener('click', () => {
+  try { sessionStorage.setItem('profile_return', window.location.href) } catch {}
+})
 
 function showErr(msg) {
   const el = document.getElementById('err')
@@ -46,13 +45,12 @@ function getCreateSnapshot() {
     name: document.getElementById('v-name').value.trim(),
     mxt: document.getElementById('v-max-t').value,
     mxu: document.getElementById('v-max-u').value,
-    gran: document.getElementById('v-gran').value,
-    active: document.getElementById('v-active').checked
+    gran: document.getElementById('v-gran').value
   })
 }
 
 function getCreateDefaultSnapshot() {
-  return JSON.stringify({ name: '', mxt: '', mxu: '', gran: '30', active: true })
+  return JSON.stringify({ name: '', mxt: '', mxu: '', gran: '30' })
 }
 
 // Важно: baseline = дефолт формы, а не «что сейчас в инпутах при загрузке».
@@ -81,8 +79,7 @@ function readRowStateFromWrap(wrap) {
   return JSON.stringify({
     name: (wrap.querySelector('.e-name')?.value || '').trim(),
     mxt: wrap.querySelector('.e-mxt')?.value ?? '',
-    mxu: wrap.querySelector('.e-mxu')?.value ?? '',
-    act: !!wrap.querySelector('.e-act')?.checked
+    mxu: wrap.querySelector('.e-mxu')?.value ?? ''
   })
 }
 
@@ -129,9 +126,6 @@ if (venuesList) {
   const el = document.getElementById(id)
   if (el) el.addEventListener('input', updateCreateButton)
 })
-const vAct = document.getElementById('v-active')
-if (vAct) vAct.addEventListener('change', updateCreateButton)
-
 async function loadVenues() {
   const res = await fetch('/api/admin/venues', { headers: { Authorization: `Bearer ${token}` } })
   const json = await res.json().catch(() => ({}))
@@ -159,7 +153,6 @@ async function loadVenues() {
           <input type="number" class="e-mxt" min="0" placeholder="макс. всего" value="${v.max_total_per_slot == null ? '' : v.max_total_per_slot}" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px">
           <input type="number" class="e-mxu" min="0" placeholder="макс. на user" value="${v.max_per_user_per_slot == null ? '' : v.max_per_user_per_slot}" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px">
         </div>
-        <label style="font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" class="e-act" ${v.is_active ? 'checked' : ''}> Активна</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button type="button" class="btn-save admin-venues-save" data-id="${v.id}">Сохранить</button>
           <button type="button" class="btn-del" data-id="${v.id}" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">Убрать из списка</button>
@@ -186,7 +179,6 @@ async function saveRow(id) {
   const name = wrap.querySelector('.e-name')?.value?.trim()
   const max_total_per_slot = numOrNull(wrap.querySelector('.e-mxt')?.value)
   const max_per_user_per_slot = numOrNull(wrap.querySelector('.e-mxu')?.value)
-  const is_active = wrap.querySelector('.e-act')?.checked
   if (!name) {
     showErr('Укажите название')
     return
@@ -194,7 +186,7 @@ async function saveRow(id) {
   const res = await fetch(`/api/admin/venues/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ name, is_active, max_total_per_slot, max_per_user_per_slot })
+    body: JSON.stringify({ name, max_total_per_slot, max_per_user_per_slot })
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
@@ -230,7 +222,6 @@ document.getElementById('v-add').onclick = async () => {
   const max_total_per_slot = numOrNull(document.getElementById('v-max-t').value)
   const max_per_user_per_slot = numOrNull(document.getElementById('v-max-u').value)
   const slot_granularity_minutes = parseInt(document.getElementById('v-gran').value, 10) || 30
-  const is_active = document.getElementById('v-active').checked
   if (!name) {
     showErr('Введите название')
     return
@@ -238,7 +229,7 @@ document.getElementById('v-add').onclick = async () => {
   const res = await fetch('/api/admin/venues', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ name, max_total_per_slot, max_per_user_per_slot, slot_granularity_minutes, is_active })
+    body: JSON.stringify({ name, max_total_per_slot, max_per_user_per_slot, slot_granularity_minutes, is_active: true })
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
@@ -250,7 +241,6 @@ document.getElementById('v-add').onclick = async () => {
   document.getElementById('v-max-t').value = ''
   document.getElementById('v-max-u').value = ''
   document.getElementById('v-gran').value = '30'
-  document.getElementById('v-active').checked = true
   syncCreateBaseline()
   loadVenues()
 }

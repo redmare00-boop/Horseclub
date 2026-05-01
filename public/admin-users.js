@@ -15,11 +15,9 @@ if (user?.role !== 'admin') {
 
 document.getElementById('user-name').textContent = user ? user.full_name : ''
 
-document.getElementById('logout-btn').onclick = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  window.location.href = '/login.html'
-}
+document.querySelector('[aria-label="Профиль"]')?.addEventListener('click', () => {
+  try { sessionStorage.setItem('profile_return', window.location.href) } catch {}
+})
 
 function showError(msg) {
   const el = document.getElementById('err')
@@ -48,8 +46,58 @@ function escapeHtml(s) {
     .replaceAll("'", '&#039;')
 }
 
-let selectedUserId = null
+function normalizePhoneForTel(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  let out = ''
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (ch === '+' && out.length === 0) { out += ch; continue }
+    if (ch >= '0' && ch <= '9') out += ch
+  }
+  return out
+}
+
+async function ensureDirectChatWith(userId, displayName) {
+  const res = await fetch('/api/chat/channels', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ user_id: userId })
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`)
+  try {
+    sessionStorage.setItem('open_chat_channel', JSON.stringify({ id: json.data?.id, name: displayName || json.data?.name || 'Личный чат' }))
+  } catch {}
+  window.location.href = '/chat.html'
+}
+
+async function fetchUserCard(userId) {
+  const res = await fetch(`/api/users/${userId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+  return json.data
+}
+
+function openUserViewModal(html) {
+  const modal = document.getElementById('user-view-modal')
+  const body = document.getElementById('user-view-body')
+  if (!modal || !body) return
+  body.innerHTML = html
+  modal.style.display = 'flex'
+}
+
+function closeUserViewModal() {
+  const modal = document.getElementById('user-view-modal')
+  if (modal) modal.style.display = 'none'
+}
+
 let lastInviteUrl = ''
+let activeUserViewId = null
+let activeUserViewArchived = false
+let archivedById = new Map()
 
 function formatDt(value) {
   if (!value) return ''
@@ -83,21 +131,56 @@ async function copyToClipboard(text) {
   }
 }
 
-function showInvite(url) {
+function buildNewUserMessage({ login, inviteUrl }) {
+  const lines = [
+    'Привет!',
+    '',
+    'Тебе создан доступ в Horseclub.',
+    '',
+    `Логин: ${login}`,
+    `Ссылка для регистрации: ${inviteUrl}`,
+    '',
+    'Инструкция:',
+    '1) Открой ссылку для регистрации.',
+    '2) Придумай и установи пароль (минимум 6 символов).',
+    '3) Войди в приложение: введи логин и пароль.',
+    '',
+    'Если ссылка не открывается — пришли мне скрин/ошибку, я помогу.'
+  ]
+  return lines.join('\n')
+}
+
+function showInvite({ url, login }) {
   lastInviteUrl = url
   const wrap = document.getElementById('invite-result')
   if (!wrap) return
+  const msg = buildNewUserMessage({ login, inviteUrl: url })
   wrap.style.display = 'block'
   wrap.innerHTML = `
     <div class="login-success" style="margin:0">
-      <div style="font-weight:500;margin-bottom:6px">Инвайт‑ссылка</div>
-      <div style="word-break:break-all">${escapeHtml(url)}</div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button id="copy-invite" style="padding:8px 10px;border:1px solid #5DCAA5;border-radius:6px;background:#fff;cursor:pointer">Скопировать</button>
-        <a href="${escapeHtml(url)}" target="_blank" style="display:inline-block;padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;text-decoration:none;color:#333">Открыть</a>
+      <div style="font-weight:500;margin-bottom:6px">Данные для новичка</div>
+      <div style="font-size:13px;margin-bottom:8px">
+        <span style="color:#666">Логин:</span> <span style="font-weight:600">${escapeHtml(login || '')}</span>
+      </div>
+      <div style="font-size:13px;margin-bottom:8px">
+        <span style="color:#666">Инвайт‑ссылка:</span> <span style="word-break:break-all">${escapeHtml(url)}</span>
+      </div>
+      <div style="margin-top:10px">
+        <div style="font-weight:500;margin-bottom:6px">Сообщение пользователю</div>
+        <textarea id="new-user-message" readonly style="width:100%;min-height:170px;resize:vertical;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:13px;line-height:1.35">${escapeHtml(msg)}</textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button id="copy-message" style="padding:8px 10px;border:1px solid #5DCAA5;border-radius:6px;background:#fff;cursor:pointer">Скопировать сообщение</button>
+          <button id="copy-invite" style="padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">Скопировать ссылку</button>
+          <a href="${escapeHtml(url)}" target="_blank" style="display:inline-block;padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;text-decoration:none;color:#333">Открыть ссылку</a>
+        </div>
       </div>
     </div>
   `
+  document.getElementById('copy-message').onclick = async () => {
+    const ok = await copyToClipboard(msg)
+    if (ok) showOk('Сообщение скопировано')
+    else showError('Не удалось скопировать. Выделите текст и скопируйте вручную.')
+  }
   document.getElementById('copy-invite').onclick = async () => {
     const ok = await copyToClipboard(lastInviteUrl)
     if (ok) showOk('Ссылка скопирована')
@@ -106,7 +189,8 @@ function showInvite(url) {
 }
 
 async function loadUsers() {
-  const res = await fetch('/api/admin/users', {
+  const scope = document.getElementById('users-filter')?.value || 'active'
+  const res = await fetch(`/api/admin/users?scope=${encodeURIComponent(scope)}`, {
     headers: { 'Authorization': `Bearer ${token}` }
   })
   const json = await res.json().catch(() => ({}))
@@ -122,60 +206,216 @@ async function loadUsers() {
     wrap.innerHTML = '<div style="color:#999">Пользователей нет</div>'
     return
   }
+  archivedById = new Map(users.map(u => [Number(u.id), Boolean(u.archived)]))
 
-  wrap.innerHTML = users.map(u => `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid #eee">
-      <div>
-        <div style="font-weight:500;color:#333">${escapeHtml(u.full_name)} <span style="color:#999;font-weight:400">(@${escapeHtml(u.login)})</span></div>
-        <div style="font-size:12px;color:#999">роль: ${escapeHtml(u.role)} · id: ${u.id}</div>
-      </div>
-      <button data-reset="${u.id}" style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">Сбросить пароль</button>
-    </div>
-  `).join('')
-
-  wrap.querySelectorAll('button[data-reset]').forEach(btn => {
-    btn.onclick = () => openResetModal(btn.getAttribute('data-reset'))
-  })
-}
-
-function openResetModal(userId) {
-  selectedUserId = userId
-  document.getElementById('reset-password').value = ''
-  document.getElementById('reset-modal').style.display = 'flex'
-  document.getElementById('reset-password').focus()
-}
-
-function closeResetModal() {
-  document.getElementById('reset-modal').style.display = 'none'
-  selectedUserId = null
-}
-
-document.getElementById('reset-close').onclick = closeResetModal
-document.getElementById('reset-cancel').onclick = closeResetModal
-document.getElementById('reset-modal').onclick = function (e) {
-  if (e.target === this) closeResetModal()
-}
-
-document.getElementById('reset-save').onclick = async () => {
-  const password = document.getElementById('reset-password').value
-  if (!selectedUserId) return
-
-  const res = await fetch(`/api/admin/users/${selectedUserId}/reset-password`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({ password })
-  })
-  const json = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    showError(json.error || 'Ошибка сброса пароля')
-    return
+  function statusLabel(raw) {
+    const v = String(raw || '').trim().toLowerCase()
+    if (!v) return ''
+    const map = {
+      'коневладелец': 'Коневладелец',
+      'тренер': 'Тренер',
+      'руководитель клуба': 'Руководитель клуба',
+      'ветврач': 'Ветврач',
+      'конюх': 'Конюх'
+    }
+    return map[v] || raw
   }
-  closeResetModal()
-  showOk('Пароль обновлён')
+
+  wrap.innerHTML = users.map(u => {
+    const name = escapeHtml(u.full_name || '')
+    const st = statusLabel(u.status)
+    const statusSub = st ? escapeHtml(String(st)) : '—'
+    const avatar = String(u.avatar_url || '').trim()
+    const horses = Array.isArray(u.horses) ? u.horses : []
+    const isOwner = String(u.status || '').trim().toLowerCase() === 'коневладелец'
+    const isSelf = Number(user.id) === Number(u.id)
+    const isArchived = Boolean(u.archived)
+
+    const avatarHtml = avatar
+      ? `<img class="user-avatar" src="${escapeHtml(avatar)}" alt="${name || 'Пользователь'}">`
+      : `<div class="user-avatar user-avatar--placeholder" aria-hidden="true"></div>`
+
+    const horsesHtml = (isOwner && horses.length)
+      ? `<div class="user-horses"><span class="label">Лошади:</span> ${escapeHtml(horses.join(', '))}</div>`
+      : (isOwner ? `<div class="user-horses user-horses--empty">Лошади: —</div>` : '')
+
+    const actionBtn = isSelf
+      ? `<button type="button" class="btn-ghost" disabled style="opacity:0.5;cursor:not-allowed" title="Нельзя архивировать себя">В архив</button>`
+      : (isArchived
+        ? `<button type="button" data-unarchive="${u.id}" class="admin-user-unarchive" style="padding:7px 10px;border:1px solid #cfe7dd;border-radius:6px;background:#fff;color:#085041;cursor:pointer">Восстановить</button>`
+        : `<button type="button" data-archive="${u.id}" class="admin-user-archive" style="padding:7px 10px;border:1px solid #f0b4b4;border-radius:6px;background:#fff;color:#A32D2D;cursor:pointer">В архив</button>`
+      )
+
+    return `
+      <div class="user-card" data-user="${u.id}">
+        <div class="user-card-left">
+          ${avatarHtml}
+          <div class="user-main">
+            <div class="user-title">
+              <span class="user-nick">${name || '—'}</span>
+              <span class="user-login">@${escapeHtml(u.login || '')}</span>
+            </div>
+            <div class="user-sub">
+              <span class="user-status">${statusSub}</span>
+              ${isArchived ? `<span class="user-status" style="background:#FCEBEB;color:#A32D2D">в архиве</span>` : ''}
+            </div>
+            ${horsesHtml}
+          </div>
+        </div>
+        <div class="user-card-actions">
+          ${actionBtn}
+        </div>
+      </div>
+    `
+  }).join('')
+
+  wrap.querySelectorAll('button[data-archive]').forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.stopPropagation()
+      const id = Number(btn.getAttribute('data-archive'))
+      if (!Number.isFinite(id)) return
+      if (!confirm('Поместить пользователя в архив? Он больше не сможет входить.')) return
+      try {
+        const res = await fetch(`/api/admin/users/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.status !== 204) {
+          const json = await res.json().catch(() => ({}))
+          showError(json.error || `Не удалось архивировать (HTTP ${res.status})`)
+          return
+        }
+        showOk('Пользователь в архиве')
+        await loadUsers()
+        await loadInvites()
+      } catch {
+        showError('Не удалось архивировать (сеть)')
+      }
+    }
+  })
+
+  wrap.querySelectorAll('button[data-unarchive]').forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.stopPropagation()
+      const id = Number(btn.getAttribute('data-unarchive'))
+      if (!Number.isFinite(id)) return
+      try {
+        const res = await fetch(`/api/admin/users/${id}/unarchive`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          showError(json.error || `Не удалось восстановить (HTTP ${res.status})`)
+          return
+        }
+        showOk('Пользователь восстановлен')
+        await loadUsers()
+      } catch {
+        showError('Не удалось восстановить (сеть)')
+      }
+    }
+  })
+
+  wrap.querySelectorAll('.user-card').forEach((card) => {
+    card.onclick = async (e) => {
+      if (e.target?.closest?.('button')) return
+      const id = Number(card.getAttribute('data-user'))
+      if (!Number.isFinite(id)) return
+      try {
+        activeUserViewId = id
+        activeUserViewArchived = Boolean(archivedById.get(id))
+        const u = await fetchUserCard(id)
+        const ava = String(u.avatar_url || '').trim()
+        const horses = Array.isArray(u.horses) ? u.horses : []
+        const phone = String(u.phone || '').trim()
+        const tel = normalizePhoneForTel(phone)
+        const isSelf = Number(user?.id) === Number(id)
+        const displayName = String(u.full_name || u.nickname || u.login || '').trim()
+        openUserViewModal(`
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+            <div class="user-avatar ${ava ? '' : 'user-avatar--placeholder'}" style="width:56px;height:56px;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center">
+              ${ava ? `<img src="${escapeHtml(ava)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">` : ''}
+            </div>
+            <div style="min-width:0">
+              <div style="font-size:14px;font-weight:600;color:#333">${escapeHtml(u.nickname || u.full_name || u.login || '')}</div>
+              <div style="font-size:12px;color:#999">@${escapeHtml(u.login || '')}</div>
+            </div>
+          </div>
+          ${u.status ? `<div style="margin:8px 0"><span class="user-status">${escapeHtml(u.status)}</span></div>` : ''}
+          <div style="font-size:13px;color:#444;margin-top:10px"><span style="color:#999">Лошади:</span> ${horses.length ? escapeHtml(horses.join(', ')) : '—'}</div>
+          <div style="font-size:13px;color:#444;margin-top:10px">
+            <span style="color:#999">Телефон:</span>
+            ${
+              phone
+                ? (isSelf
+                  ? `<span style="margin-left:6px;color:#666">${escapeHtml(phone)}</span>`
+                  : `<a href="tel:${escapeHtml(tel || phone)}" class="user-card-phone" id="admin-user-phone" style="margin-left:6px">${escapeHtml(phone)}</a>`)
+                : ' —'
+            }
+          </div>
+          <div class="user-card-modal-row" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+            ${isSelf ? '' : `<button type="button" class="btn-ghost" id="admin-user-chat" style="padding:8px 10px;border-radius:10px">Написать в чат</button>`}
+          </div>
+        `)
+        const phoneEl = document.getElementById('admin-user-phone')
+        if (phoneEl && phone && !isSelf) {
+          phoneEl.addEventListener('click', (e2) => {
+            e2.preventDefault()
+            if (confirm(`Позвонить ${phone}?`)) window.location.href = `tel:${tel || phone}`
+          })
+        }
+        const chatBtn = document.getElementById('admin-user-chat')
+        if (chatBtn && !isSelf) {
+          chatBtn.addEventListener('click', async (e3) => {
+            e3.preventDefault()
+            try {
+              await ensureDirectChatWith(id, displayName)
+            } catch (err2) {
+              showError(`Не удалось открыть чат: ${escapeHtml(err2?.message || 'ошибка')}`)
+            }
+          })
+        }
+        const btn = document.getElementById('user-delete')
+        if (btn) {
+          btn.style.display = activeUserViewArchived ? 'none' : ''
+        }
+      } catch (err) {
+        showError(`Не удалось открыть профиль: ${escapeHtml(err.message || 'ошибка')}`)
+      }
+    }
+  })
 }
+
+const userViewClose = document.getElementById('user-view-close')
+if (userViewClose) userViewClose.onclick = closeUserViewModal
+document.getElementById('user-view-modal')?.addEventListener('click', function (e) {
+  if (e.target === this) closeUserViewModal()
+})
+document.getElementById('user-view-cancel')?.addEventListener('click', closeUserViewModal)
+
+document.getElementById('user-delete')?.addEventListener('click', async () => {
+  if (!activeUserViewId) return
+  if (!confirm('Поместить пользователя в архив? Он больше не сможет входить.')) return
+  try {
+    const res = await fetch(`/api/admin/users/${activeUserViewId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (res.status !== 204) {
+      const json = await res.json().catch(() => ({}))
+      showError(json.error || `Не удалось архивировать (HTTP ${res.status})`)
+      return
+    }
+    closeUserViewModal()
+    activeUserViewId = null
+    await loadUsers()
+    await loadInvites()
+    showOk('Пользователь в архиве')
+  } catch {
+    showError('Не удалось архивировать (сеть)')
+  }
+})
 
 function formatInviteStatus(inv) {
   if (inv.used_at) return 'использован'
@@ -234,6 +474,8 @@ async function loadInvites() {
   wrap.innerHTML = invites.map(inv => {
     const meta = inviteStatusMeta(inv)
     const canRevoke = meta.status === 'активен'
+    const token = String(inv.token || '').trim()
+    const inviteUrl = token ? `${window.location.origin}/invite.html?token=${encodeURIComponent(token)}` : ''
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid #eee">
         <div>
@@ -246,11 +488,28 @@ async function loadInvites() {
             ${meta.hint ? `<span style="margin-left:6px;color:#999">(${escapeHtml(meta.hint)})</span>` : ''}
             · до: ${escapeHtml(formatDt(inv.expires_at))}
           </div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            ${inviteUrl
+              ? `<button type="button" class="btn-ghost" data-copy-invite="${escapeHtml(inviteUrl)}">Скопировать ссылку</button>
+                 <a class="btn-ghost" href="${escapeHtml(inviteUrl)}" target="_blank" style="text-decoration:none;color:#333">Открыть</a>`
+              : `<span style="color:#999;font-size:12px">Ссылка недоступна (инвайт создан до обновления)</span>`
+            }
+          </div>
         </div>
         <button data-revoke="${inv.id}" ${canRevoke ? '' : 'disabled'} style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:${canRevoke ? 'pointer' : 'not-allowed'};opacity:${canRevoke ? '1' : '0.5'}">Отменить</button>
       </div>
     `
   }).join('')
+
+  wrap.querySelectorAll('button[data-copy-invite]').forEach((btn) => {
+    btn.onclick = async () => {
+      const url = btn.getAttribute('data-copy-invite') || ''
+      if (!url) return
+      const ok = await copyToClipboard(url)
+      if (ok) showOk('Ссылка скопирована')
+      else showError('Не удалось скопировать. Скопируйте вручную.')
+    }
+  })
 
   wrap.querySelectorAll('button[data-revoke]').forEach(btn => {
     btn.onclick = async () => {
@@ -275,18 +534,30 @@ async function loadInvites() {
 
 document.getElementById('create-btn').onclick = async () => {
   const full_name = document.getElementById('full_name').value.trim()
-  const login = document.getElementById('login').value.trim()
-  const password = document.getElementById('password').value
+  const loginRaw = document.getElementById('login')?.value?.trim() || ''
+  const status = document.getElementById('status')?.value?.trim()
   const role = document.getElementById('role').value
-  const invite = document.getElementById('invite')?.checked
 
-  if (!full_name || !login || (!invite && !password)) {
-    showError(invite ? 'Заполните имя и логин' : 'Заполните все поля')
+  if (!full_name) {
+    showError('Заполните имя и фамилию')
     return
   }
 
-  const url = invite ? '/api/admin/invites' : '/api/admin/users'
-  const payload = invite ? { full_name, login, role } : { full_name, login, password, role }
+  let login = loginRaw
+  if (!login) {
+    // Generate a reasonable login automatically (admin can later change it if needed).
+    const baseLogin = String(full_name)
+      .trim()
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/[^a-zа-я0-9]+/gi, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 24) || 'user'
+    login = `${baseLogin}-${Math.floor(Math.random() * 9000 + 1000)}`
+  }
+
+  const url = '/api/admin/invites'
+  const payload = { full_name, login, role, status }
 
   const res = await fetch(url, {
     method: 'POST',
@@ -304,17 +575,26 @@ document.getElementById('create-btn').onclick = async () => {
     return
   }
 
-  document.getElementById('password').value = ''
-  if (invite && json.data?.invite_url) {
-    showInvite(json.data.invite_url)
-    loadInvites()
-  } else {
-    showOk(`Пользователь создан: ${json.user.full_name} (${json.user.role})`)
+  if (json.data?.invite_url) {
+    showInvite({ url: json.data.invite_url, login })
+    showOk('Инвайт создан')
   }
-  loadUsers()
+  loadInvites()
 }
 
-document.getElementById('refresh-btn').onclick = loadUsers
+document.getElementById('cancel-create')?.addEventListener('click', () => {
+  document.getElementById('full_name').value = ''
+  const login = document.getElementById('login')
+  if (login) login.value = ''
+  document.getElementById('status').value = ''
+  document.getElementById('role').value = 'user'
+  document.getElementById('err').style.display = 'none'
+  document.getElementById('ok').style.display = 'none'
+  const invite = document.getElementById('invite-result')
+  if (invite) invite.style.display = 'none'
+})
+
+document.getElementById('users-filter')?.addEventListener('change', loadUsers)
 document.getElementById('invites-refresh-btn').onclick = loadInvites
 document.getElementById('invites-filter').onchange = loadInvites
 

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Люди — Конный клуб</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="topbar">
+    <h1>Люди</h1>
+    <div class="user-info">
+      <button type="button" class="profile-btn" data-nav-back aria-label="Назад" title="Назад">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6"></path>
+        </svg>
+      </button>
+      <a href="/" class="profile-btn" aria-label="Домой" title="Домой">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 10.5L12 3l9 7.5"></path>
+          <path d="M5.5 9.5V21h13V9.5"></path>
+          <path d="M10 21v-7h4v7"></path>
+        </svg>
+      </a>
+      <a href="/chat.html" class="profile-btn" aria-label="Чат" title="Чат">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 5h16v10H7l-3 3V5z"></path>
+        </svg>
+      </a>
+      <span id="user-name"></span>
+      <a href="/profile.html" class="profile-btn" aria-label="Профиль" title="Профиль" id="profile-link">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 21a8 8 0 0 0-16 0"></path>
+          <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"></path>
+        </svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="main-tabs" style="max-width:980px;margin:10px auto 0">
+    <a class="main-tab" href="/">Расписание</a>
+    <a class="main-tab active" href="/people.html">Люди</a>
+    <a class="main-tab" href="/horses.html">Лошади</a>
+  </div>
+
+  <div class="schedule-wrap" style="max-width:980px;margin:0 auto">
+    <div class="login-card" style="width:100%">
+      <div class="people-top">
+        <input id="people-search" class="people-search" type="text" placeholder="Найти человека..." aria-label="Найти человека">
+      </div>
+      <div id="people-list" class="people-list"></div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="people-modal" style="display:none">
+    <div class="modal" style="width:460px">
+      <div class="modal-header">
+        <span class="modal-title" id="people-modal-title">Профиль</span>
+        <button class="modal-close" id="people-modal-close">✕</button>
+      </div>
+      <div id="people-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="people.js"></script>
+</body>
+</html>

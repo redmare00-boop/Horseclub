@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Клуб — Horseclub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="topbar">
+    <h1>Клуб</h1>
+    <div class="user-info">
+      <button type="button" class="profile-btn" data-nav-back aria-label="Назад" title="Назад">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6"></path>
+        </svg>
+      </button>
+      <span id="user-name"></span>
+      <a href="/profile.html" class="profile-btn" aria-label="Профиль" title="Профиль">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 21a8 8 0 0 0-16 0"></path>
+          <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"></path>
+        </svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="schedule-wrap" style="max-width:720px;margin:0 auto">
+    <div class="login-card" style="width:100%">
+      <div id="err" class="login-error" style="display:none"></div>
+      <div id="ok" class="login-success" style="display:none"></div>
+
+      <div class="field">
+        <label>Название клуба</label>
+        <input id="club-name" type="text" placeholder="Конный клуб">
+      </div>
+
+      <div class="field">
+        <label>Логотип (до 2 МБ, квадрат лучше)</label>
+        <input id="club-logo" type="file" accept="image/*">
+        <div id="logo-preview" style="margin-top:10px;display:none;gap:10px;align-items:center">
+          <img id="logo-img" src="" alt="" style="width:56px;height:56px;border-radius:16px;border:1px solid rgba(0,0,0,0.06);object-fit:cover;display:block">
+          <button type="button" id="logo-clear" class="btn-ghost">Убрать логотип</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Адрес</label>
+        <input id="club-address" type="text" placeholder="Город, улица, дом">
+      </div>
+
+      <div class="field">
+        <label>Координаты (широта, долгота)</label>
+        <input id="club-coords" type="text" placeholder="Напр. 55.7558, 37.6173">
+        <div class="login-sub" style="margin:6px 0 0">Подсказка: формат “широта, долгота” — можно скопировать из Яндекс/Google Карт.</div>
+      </div>
+
+      <div class="field">
+        <label>Номер в системе Меркурий</label>
+        <input id="club-mercury" type="text" placeholder="(необязательно)">
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button id="save-btn" style="padding:9px 12px;background:#534AB7;color:#fff;border:none;border-radius:8px;font-weight:600">Сохранить</button>
+        <button id="cancel-btn" class="btn-ghost">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crop logo modal (1:1) -->
+  <div class="overlay" id="logo-crop-modal" style="z-index:1000">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head">
+        <h2>Кадрирование логотипа (1:1)</h2>
+        <button id="logo-crop-close" type="button" class="btn-ghost">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;justify-content:center">
+          <canvas id="logo-crop-canvas" width="320" height="320" style="border-radius:14px;border:1px solid #eee;background:#f6f6f6;touch-action:none"></canvas>
+        </div>
+        <div style="margin-top:12px">
+          <label>Масштаб</label>
+          <input id="logo-crop-zoom" type="range" min="1" max="3" step="0.01" value="1">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <button id="logo-crop-apply" type="button" style="padding:9px 12px;background:#534AB7;color:#fff;border:none;border-radius:10px;font-weight:600">Готово</button>
+          <button id="logo-crop-cancel" type="button" class="btn-ghost">Отмена</button>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:#777">Перетаскивайте изображение, чтобы выбрать кадр.</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="admin-club.js"></script>
+</body>
+</html>
+

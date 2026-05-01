@@ -266,11 +266,7 @@ if (user?.role === 'admin') {
   if (link) link.style.display = 'inline-block'
 }
 
-document.getElementById('logout-btn').onclick = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  window.location.href = '/login.html'
-}
+// Logout is available only from profile page
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js')

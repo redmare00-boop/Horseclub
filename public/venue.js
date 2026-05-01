@@ -15,17 +15,14 @@ let currentVenue = null
 
 document.getElementById('user-name').textContent = user ? user.full_name : ''
 if (user?.role === 'admin') {
-  const link = document.getElementById('admin-users-link')
+  const link = document.getElementById('admin-panel-link')
   if (link) link.style.display = 'inline-block'
-  const vlink = document.getElementById('admin-venues-link')
-  if (vlink) vlink.style.display = 'inline-block'
-}
-document.getElementById('logout-btn').onclick = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  window.location.href = '/login.html'
 }
 
+// remember return page for profile
+document.querySelector('[aria-label="Профиль"]')?.addEventListener('click', () => {
+  try { sessionStorage.setItem('profile_return', window.location.href) } catch {}
+})
 let selectedDate = new Date()
 let calMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
 let bookings = []

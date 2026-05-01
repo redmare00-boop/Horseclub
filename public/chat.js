@@ -8,6 +8,8 @@ if (user?.must_change_password) {
   window.location.href = '/change-password.html'
 }
 
+// Confirm logout (chat page has no logout button, but keep utility for reuse if added later)
+
 const socket = io()
 let activeChannelId = null
 let channels = []
@@ -15,6 +17,8 @@ let allChannels = []
 let pendingAttachments = []
 let uploadInProgress = false
 const currentMessagesById = new Map()
+const userProfileCache = new Map()
+let tooltipEl = null
 let activeMenuMessageId = null
 let activeMenuChannelId = null
 let activeForwardMessageId = null
@@ -22,6 +26,8 @@ let editingMessageId = null
 let editingBackupHtml = null
 let oldestLoadedMessageId = null
 let hasMoreHistory = true
+
+let scopePending = null // { type: 'pin'|'delete_message'|'delete_chat', messageId?, channelId?, pinned? }
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -32,6 +38,242 @@ function escapeHtml(s) {
     .replace(/'/g, '&#039;')
 }
 
+function resetViewportScale() {
+  // iOS sometimes keeps zoom after focusing inputs; this forces scale back to 1.
+  const meta = document.querySelector('meta[name="viewport"]')
+  if (!meta) return
+  const base = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no'
+  try {
+    meta.setAttribute('content', base)
+    // Force reflow/refresh of viewport settings
+    setTimeout(() => meta.setAttribute('content', base), 50)
+  } catch {}
+}
+
+function openCopyModal(text) {
+  const modal = document.getElementById('copy-modal')
+  const ta = document.getElementById('copy-text')
+  if (!modal || !ta) {
+    // last resort
+    prompt('Скопируйте текст:', text)
+    return
+  }
+  ta.value = String(text || '')
+  modal.style.display = 'flex'
+  // iOS: select text for quick copy
+  setTimeout(() => {
+    try {
+      ta.focus({ preventScroll: true })
+    } catch {
+      try { ta.focus() } catch {}
+    }
+    try {
+      ta.setSelectionRange(0, ta.value.length)
+    } catch {
+      try { ta.select() } catch {}
+    }
+  }, 50)
+}
+
+function closeCopyModal() {
+  const modal = document.getElementById('copy-modal')
+  if (modal) modal.style.display = 'none'
+}
+
+async function tryCopyText(text) {
+  const t = String(text || '')
+  if (!t) return false
+  // 1) Clipboard API (secure contexts)
+  try {
+    if (window.isSecureContext && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(t)
+      return true
+    }
+  } catch {}
+  // 2) execCommand fallback
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = t
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.top = '0'
+    ta.style.left = '0'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.setSelectionRange(0, ta.value.length)
+    const ok = document.execCommand('copy')
+    ta.remove()
+    return !!ok
+  } catch {}
+  return false
+}
+
+function initials(nameOrNick) {
+  const s = String(nameOrNick || '').trim()
+  if (!s) return '?'
+  const parts = s.split(/\s+/).filter(Boolean)
+  const a = parts[0]?.[0] || '?'
+  const b = (parts[1]?.[0] || '')
+  return (a + b).toUpperCase()
+}
+
+function normalizePhoneForTel(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  // keep leading +, remove spaces/brackets/dashes
+  let out = ''
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (ch === '+' && out.length === 0) { out += ch; continue }
+    if (ch >= '0' && ch <= '9') out += ch
+  }
+  return out
+}
+
+async function ensureDirectChatWith(userId, displayName) {
+  const res = await fetch('/api/chat/channels', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ user_id: userId })
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`)
+  try {
+    sessionStorage.setItem('open_chat_channel', JSON.stringify({ id: json.data?.id, name: displayName || json.data?.name || 'Личный чат' }))
+  } catch {}
+  window.location.href = '/chat.html'
+}
+
+async function getUserProfile(userId) {
+  const id = Number(userId)
+  if (!Number.isFinite(id)) return null
+  if (userProfileCache.has(id)) return userProfileCache.get(id)
+  try {
+    const res = await fetch(`/api/users/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const errText = json?.error || `HTTP ${res.status}`
+      return { __error: errText, __status: res.status }
+    }
+    userProfileCache.set(id, json.data)
+    return json.data
+  } catch {
+    return { __error: 'сеть', __status: 0 }
+  }
+}
+
+function ensureTooltip() {
+  if (tooltipEl) return tooltipEl
+  tooltipEl = document.createElement('div')
+  tooltipEl.className = 'user-tooltip'
+  document.body.appendChild(tooltipEl)
+  return tooltipEl
+}
+
+function showTooltipAt(rect, html) {
+  const el = ensureTooltip()
+  el.innerHTML = html
+  const pad = 10
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  el.style.display = 'block'
+  const w = el.offsetWidth
+  const h = el.offsetHeight
+  let left = rect.left + rect.width / 2 - w / 2
+  let top = rect.top - h - 10
+  if (left < pad) left = pad
+  if (left + w > vw - pad) left = vw - pad - w
+  if (top < pad) top = rect.bottom + 10
+  if (top + h > vh - pad) top = vh - pad - h
+  el.style.left = `${Math.round(left)}px`
+  el.style.top = `${Math.round(top)}px`
+}
+
+function hideTooltip() {
+  if (!tooltipEl) return
+  tooltipEl.style.display = 'none'
+}
+
+async function openUserCard(userId) {
+  const modal = document.getElementById('user-card-modal')
+  const body = document.getElementById('user-card-body')
+  const title = document.getElementById('user-card-title')
+  if (!modal || !body || !title) return
+
+  body.innerHTML = '<div style="color:#999;font-size:13px">Загрузка...</div>'
+  modal.style.display = 'flex'
+
+  const p = await getUserProfile(userId)
+  if (!p || p.__error) {
+    const hint = p?.__error ? escapeHtml(p.__error) : 'неизвестно'
+    body.innerHTML = `<div class="login-error">Не удалось загрузить профиль (${hint})</div>`
+    return
+  }
+
+  const ava = String(p.avatar_url || '').trim()
+  const horses = Array.isArray(p.horses) ? p.horses : []
+  const isDeleted = !!p.deleted
+  const isSelf = Number(user?.id) === Number(userId)
+  const displayName = String(p.full_name || p.nickname || p.login || '').trim()
+  title.textContent = p.nickname ? `@${p.nickname}` : 'Профиль'
+
+  const phone = String(p.phone || '').trim()
+  const tel = normalizePhoneForTel(phone)
+  const phoneHtml = (isDeleted || !phone)
+    ? `<div style="color:#999;font-size:13px">${isDeleted ? 'Аккаунт удалён' : 'Телефон не указан'}</div>`
+    : (isSelf
+      ? `<div style="color:#666;font-size:13px">${escapeHtml(phone)}</div>`
+      : `<a href="tel:${escapeHtml(tel || phone)}" class="user-card-phone" id="user-card-phone">${escapeHtml(phone)}</a>`)
+
+  body.innerHTML = `
+    <div class="user-card-modal-top">
+      <div class="ava">${ava ? `<img src="${escapeHtml(ava)}" alt="">` : escapeHtml(initials(p.nickname || p.full_name || p.login))}</div>
+      <div>
+        <div class="name">${escapeHtml(isDeleted ? 'Удаленный аккаунт' : (p.nickname || p.full_name || p.login || ''))}</div>
+        <div class="meta">
+          ${(!isDeleted && p.status) ? `<span class="user-status">${escapeHtml(p.status)}</span>` : ''}
+          ${!isDeleted ? `<span style="color:#999">@${escapeHtml(p.login || '')}</span>` : ''}
+        </div>
+      </div>
+    </div>
+    <div class="user-card-modal-row"><span style="color:#999">Лошади:</span> ${(!isDeleted && horses.length) ? escapeHtml(horses.join(', ')) : '—'}</div>
+    <div class="user-card-modal-row"><span style="color:#999">Телефон:</span><div style="margin-top:6px">${phoneHtml}</div></div>
+    <div class="user-card-modal-row" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+      ${isSelf ? '' : `<button type="button" class="btn-ghost" id="user-card-chat" style="padding:8px 10px;border-radius:10px">Написать в чат</button>`}
+    </div>
+  `
+
+  const phoneEl = document.getElementById('user-card-phone')
+  if (phoneEl) {
+    phoneEl.addEventListener('click', (e) => {
+      e.preventDefault()
+      if (confirm(`Позвонить ${phone}?`)) {
+        window.location.href = `tel:${tel || phone}`
+      }
+    })
+  }
+
+  const chatBtn = document.getElementById('user-card-chat')
+  if (chatBtn && !isSelf) {
+    chatBtn.addEventListener('click', async (e) => {
+      e.preventDefault()
+      try {
+        await ensureDirectChatWith(Number(userId), displayName)
+      } catch (err) {
+        alert(`Не удалось открыть чат: ${escapeHtml(err?.message || 'ошибка')}`)
+      }
+    })
+  }
+}
+
+function closeUserCard() {
+  const modal = document.getElementById('user-card-modal')
+  if (modal) modal.style.display = 'none'
+}
+
 function isImageMime(mime) {
   return typeof mime === 'string' && mime.startsWith('image/')
 }
@@ -39,7 +281,7 @@ function isImageMime(mime) {
 function renderPinnedBar(messages) {
   const bar = document.getElementById('pinned-bar')
   if (!bar) return
-  const pinned = (messages || []).filter((m) => m?.is_pinned)
+  const pinned = (messages || []).filter((m) => m?.is_pinned || m?.my_pinned)
   if (pinned.length === 0) {
     bar.style.display = 'none'
     bar.innerHTML = ''
@@ -59,7 +301,17 @@ function updateAttachButton() {
   const btn = document.getElementById('attach-btn')
   if (!btn) return
   const count = pendingAttachments.length
-  btn.textContent = uploadInProgress ? '⏳' : (count > 0 ? `📎${count}` : '📎')
+  if (uploadInProgress) {
+    btn.textContent = '...'
+    btn.disabled = true
+    return
+  }
+  const icon = `
+    <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7.1-7.1L14.6 3.7a3.5 3.5 0 1 1 5 5L10 18.3a2 2 0 1 1-2.8-2.8l8.6-8.6"></path>
+    </svg>
+  `
+  btn.innerHTML = icon + (count > 0 ? `<span class="attach-count">${count}</span>` : '')
   btn.disabled = uploadInProgress
 }
 
@@ -104,6 +356,20 @@ function closeMsgMenu() {
   activeMenuMessageId = null
 }
 
+function closeScopeMenu() {
+  const menu = document.getElementById('scope-menu')
+  if (!menu) return
+  menu.style.display = 'none'
+  scopePending = null
+}
+
+function openScopeMenu(pending) {
+  const menu = document.getElementById('scope-menu')
+  if (!menu) return
+  scopePending = pending
+  menu.style.display = 'flex'
+}
+
 function openMsgMenu(messageId) {
   const menu = document.getElementById('msg-menu')
   const pinBtn = document.getElementById('msg-menu-pin')
@@ -114,7 +380,7 @@ function openMsgMenu(messageId) {
 
   activeMenuMessageId = messageId
   const msg = currentMessagesById.get(messageId)
-  const pinned = !!msg?.is_pinned
+  const pinned = !!msg?.is_pinned || !!msg?.my_pinned
   pinBtn.textContent = pinned ? 'Открепить' : 'Закрепить'
 
   const canDelete = msg && (Number(msg.sender_id) === Number(user.id) || user.role === 'admin')
@@ -355,18 +621,75 @@ function renderDialogs() {
     item.className = 'dialog-item' + (ch.id === activeChannelId ? ' active' : '')
     item.setAttribute('data-id', String(ch.id))
     item.setAttribute('data-type', ch.type)
+    if (ch.other_user_id) item.setAttribute('data-other', String(ch.other_user_id))
+    const title = ch.name || (ch.type === 'general' ? 'Общий чат' : 'Личный чат')
+    const otherId = Number(ch.other_user_id)
+    const isDeleted = !!ch.other_deleted
+    const otherAva = String(ch.other_avatar_url || '').trim()
+    const avaHtml = (ch.type === 'direct')
+      ? `<span class="dialog-ava${isDeleted ? ' deleted' : ''}" data-user="${Number.isFinite(otherId) ? otherId : ''}">${
+          isDeleted
+            ? '✕'
+            : (otherAva ? `<img src="${escapeHtml(otherAva)}" alt="">` : escapeHtml(initials(title)))
+        }</span>`
+      : `<span class="dialog-ava">#</span>`
     item.innerHTML = `
-      <span class="dialog-name">${ch.name || 'Личный чат'}</span>
+      <span class="dialog-left">
+        ${avaHtml}
+        <span class="dialog-name">${escapeHtml(title)}</span>
+      </span>
       ${ch.unread_count > 0 ? `<span class="dialog-unread">${ch.unread_count}</span>` : ''}
     `
-    item.onclick = () => openChannel(ch.id, ch.name || 'Личный чат')
+    item.onclick = (e) => {
+      // iPhone: a tap on avatar often becomes a synthetic click on the row.
+      // So we explicitly ignore clicks that originated from the avatar.
+      if (e?.target?.closest?.('.dialog-ava')) return
+      openChannel(ch.id, ch.name || 'Личный чат')
+    }
     list.appendChild(item)
+
+    // tooltip + open card on avatar click (NOT on name)
+    if (ch.type === 'direct' && Number.isFinite(otherId)) {
+      const avaEl = item.querySelector('.dialog-ava')
+      if (avaEl) {
+        const show = async () => {
+          if (isDeleted) {
+            showTooltipAt(avaEl.getBoundingClientRect(), `<div class="t-title">Удаленный аккаунт</div>`)
+            return
+          }
+          const p = await getUserProfile(otherId)
+          if (!p) return
+          const horses = Array.isArray(p.horses) ? p.horses : []
+          const html = `
+            <div class="t-title">${escapeHtml(p.nickname || p.full_name || p.login || '')}</div>
+            <div class="t-sub">${p.status ? escapeHtml(p.status) : ''}${(p.status && horses.length) ? ' · ' : ''}${horses.length ? `лошади: ${escapeHtml(horses.join(', '))}` : ''}</div>
+          `
+          showTooltipAt(avaEl.getBoundingClientRect(), html)
+        }
+
+        avaEl.addEventListener('mouseenter', show)
+        avaEl.addEventListener('mouseleave', hideTooltip)
+
+        avaEl.addEventListener('click', async (e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          hideTooltip()
+          await openUserCard(otherId)
+        })
+      }
+    }
   })
 }
 
 async function openChannel(channelId, name) {
   activeChannelId = channelId
-  document.getElementById('chat-title').textContent = name
+  const titleEl = document.getElementById('chat-title')
+  if (titleEl) {
+    titleEl.textContent = name
+    const ch = allChannels.find((c) => c.id === channelId)
+    const otherId = Number(ch?.other_user_id)
+    titleEl.setAttribute('data-user', ch?.type === 'direct' && Number.isFinite(otherId) ? String(otherId) : '')
+  }
   socket.emit('channel:join', channelId)
   setDialogOpen(true)
   document.getElementById('search-results')?.classList.remove('show')
@@ -468,12 +791,56 @@ function appendMessageToContainer(container, m) {
   wrap.id = `m-${m.id}`
   wrap.setAttribute('data-id', String(m.id))
   wrap.setAttribute('data-pinned', m.is_pinned ? '1' : '0')
+  const senderDeleted = !!m.sender_deleted
+  const senderAva = String(m.sender_avatar_url || '').trim()
+  const senderName = senderDeleted ? 'Удаленный аккаунт' : String(m.sender_name || '')
   wrap.innerHTML = `
-    ${!isMine ? `<div class="message-author">${m.sender_name}</div>` : ''}
-    <div class="message-bubble">${escapeHtml(m.content || '')}${attsHtml}</div>
+    ${!isMine ? `<div class="message-author">${escapeHtml(senderName)}</div>` : ''}
+    <div class="message-row">
+      ${!isMine ? `<div class="msg-avatar${senderDeleted ? ' deleted' : ''}" data-user="${Number(m.sender_id)}">${
+        senderDeleted ? '✕' : (senderAva ? `<img src="${escapeHtml(senderAva)}" alt="">` : escapeHtml(initials(senderName)))
+      }</div>` : ''}
+      <div class="message-bubble">${escapeHtml(m.content || '')}${attsHtml}</div>
+    </div>
     <div class="message-time">${time}${editedMark}</div>
   `
   container.appendChild(wrap)
+
+  if (!isMine) {
+    const senderId = Number(m.sender_id)
+    const avaEl = wrap.querySelector('.msg-avatar')
+    if (avaEl && Number.isFinite(senderId)) {
+      avaEl.addEventListener('mouseenter', async () => {
+        if (senderDeleted) {
+          showTooltipAt(avaEl.getBoundingClientRect(), `<div class="t-title">Удаленный аккаунт</div>`)
+          return
+        }
+        const p = await getUserProfile(senderId)
+        if (!p) return
+        const horses = Array.isArray(p.horses) ? p.horses : []
+        const html = `
+          <div class="t-title">${escapeHtml(p.nickname || p.full_name || p.login || '')}</div>
+          <div class="t-sub">${p.status ? escapeHtml(p.status) : ''}${(p.status && horses.length) ? ' · ' : ''}${horses.length ? `лошади: ${escapeHtml(horses.join(', '))}` : ''}</div>
+        `
+        showTooltipAt(avaEl.getBoundingClientRect(), html)
+      })
+      avaEl.addEventListener('mouseleave', hideTooltip)
+      avaEl.addEventListener('click', async (e) => {
+        e.preventDefault()
+        hideTooltip()
+        await openUserCard(senderId)
+      })
+      avaEl.addEventListener(
+        'touchstart',
+        async (e) => {
+          e.preventDefault()
+          hideTooltip()
+          await openUserCard(senderId)
+        },
+        { passive: false }
+      )
+    }
+  }
 }
 
 function appendMessage(m) {
@@ -514,12 +881,9 @@ async function sendMessage() {
   pendingAttachments = []
   updateAttachButton()
   renderAttachmentsPreview()
-  // keep keyboard open and avoid viewport jumps on iOS
-  try {
-    input.focus({ preventScroll: true })
-  } catch {
-    input.focus()
-  }
+  // After sending, close keyboard and reset iOS zoom.
+  try { input.blur() } catch {}
+  resetViewportScale()
 }
 
 const sendBtn = document.getElementById('send-btn')
@@ -536,7 +900,7 @@ async function togglePin(messageId, pinned) {
     const res = await fetch(`/api/chat/messages/${messageId}/pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ pinned })
+      body: JSON.stringify({ pinned, scope: 'all' })
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -551,7 +915,7 @@ async function togglePin(messageId, pinned) {
       const next = { ...prev, ...row }
       currentMessagesById.set(row.id, next)
       const msgEl = document.getElementById(`m-${row.id}`)
-      if (msgEl) msgEl.setAttribute('data-pinned', row.is_pinned ? '1' : '0')
+      if (msgEl) msgEl.setAttribute('data-pinned', (row.is_pinned || row.my_pinned) ? '1' : '0')
       renderPinnedBarFromCache()
       closeMsgMenu()
       return { ok: true, data: row }
@@ -574,6 +938,73 @@ socket.on('message:pin', (payload) => {
   renderPinnedBarFromCache()
   closeMsgMenu()
 })
+
+async function togglePinScoped(messageId, pinned, scope) {
+  if (!activeChannelId) return
+  try {
+    const res = await fetch(`/api/chat/messages/${messageId}/pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ pinned, scope })
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(json.error || `Не удалось закрепить (HTTP ${res.status})`)
+      return
+    }
+    const row = json.data
+    if (row?.id) {
+      const prev = currentMessagesById.get(row.id) || { id: row.id, channel_id: row.channel_id }
+      currentMessagesById.set(row.id, { ...prev, ...row })
+      renderPinnedBarFromCache()
+    }
+  } catch {
+    alert('Не удалось закрепить (сеть)')
+  }
+}
+
+async function deleteMessageScoped(messageId, scope) {
+  try {
+    const res = await fetch(`/api/chat/messages/${messageId}?scope=${encodeURIComponent(scope)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert(json.error || `Не удалось удалить (HTTP ${res.status})`)
+      return
+    }
+    currentMessagesById.delete(messageId)
+    const el = document.getElementById(`m-${messageId}`)
+    if (el) el.remove()
+    renderPinnedBarFromCache()
+  } catch {
+    alert('Не удалось удалить (сеть)')
+  }
+}
+
+async function deleteChatScoped(channelId, scope) {
+  try {
+    const res = await fetch(`/api/chat/channels/${channelId}?scope=${encodeURIComponent(scope)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (res.status !== 204) {
+      const json = await res.json().catch(() => ({}))
+      alert(json.error || `Не удалось удалить (HTTP ${res.status})`)
+      return
+    }
+    if (activeChannelId === channelId) {
+      activeChannelId = null
+      document.getElementById('chat-title').textContent = ''
+      document.getElementById('messages-area').innerHTML = ''
+      setDialogOpen(false)
+    }
+    await loadChannels()
+  } catch {
+    alert('Не удалось удалить (сеть)')
+  }
+}
 
 socket.on('message:delete', (payload) => {
   if (!payload || payload.channel_id !== activeChannelId) return
@@ -695,23 +1126,37 @@ const menuEdit = document.getElementById('msg-menu-edit')
 const menuFwd = document.getElementById('msg-menu-fwd')
 const menuDel = document.getElementById('msg-menu-del')
 if (menuCancel) {
-  menuCancel.onclick = closeMsgMenu
-  menuCancel.addEventListener('touchend', (e) => {
-    e.preventDefault()
+  async function copyActiveMessage() {
+    if (!activeMenuMessageId) return
+    const msg = currentMessagesById.get(activeMenuMessageId)
+    const text = String(msg?.content || '').trim()
+    if (!text) {
+      closeMsgMenu()
+      return
+    }
+    const copied = await tryCopyText(text)
     closeMsgMenu()
-  })
+    if (copied) return
+    openCopyModal(text)
+  }
+  menuCancel.onclick = (e) => {
+    e?.preventDefault?.()
+    copyActiveMessage()
+  }
+  menuCancel.addEventListener('touchstart', (e) => {
+    e.preventDefault()
+    copyActiveMessage()
+  }, { passive: false })
 }
 if (menuPin) {
   const runPin = async (e) => {
     if (e) e.preventDefault()
     if (!activeMenuMessageId) return
-    menuPin.disabled = true
-    const prevText = menuPin.textContent
-    menuPin.textContent = '...'
-    const msg = currentMessagesById.get(activeMenuMessageId)
-    await togglePin(activeMenuMessageId, !msg?.is_pinned)
-    menuPin.textContent = prevText
-    menuPin.disabled = false
+    const messageId = activeMenuMessageId
+    const msg = currentMessagesById.get(messageId)
+    const currentlyPinned = !!msg?.is_pinned || !!msg?.my_pinned
+    closeMsgMenu()
+    openScopeMenu({ type: 'pin', messageId, pinned: !currentlyPinned })
   }
   // iOS: touchstart срабатывает надёжнее touchend/click
   menuPin.onclick = runPin
@@ -751,40 +1196,14 @@ if (menuDel) {
     if (e?.stopPropagation) e.stopPropagation()
     if (inFlight) return
     if (!activeMenuMessageId) return
-    const msg = currentMessagesById.get(activeMenuMessageId)
+    const messageId = activeMenuMessageId
+    const msg = currentMessagesById.get(messageId)
     const canDelete = msg && (Number(msg.sender_id) === Number(user.id) || user.role === 'admin')
     if (!canDelete) return
     inFlight = true
-    if (!confirm('Удалить сообщение?')) {
-      inFlight = false
-      return
-    }
-    menuDel.disabled = true
-    const prevText = menuDel.textContent
-    menuDel.textContent = '...'
-    try {
-      const res = await fetch(`/api/chat/messages/${activeMenuMessageId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        alert(json.error || `Не удалось удалить (HTTP ${res.status})`)
-        return
-      }
-      // optimistic UI update even if socket is delayed
-      currentMessagesById.delete(activeMenuMessageId)
-      const el = document.getElementById(`m-${activeMenuMessageId}`)
-      if (el) el.remove()
-      renderPinnedBarFromCache()
-      closeMsgMenu()
-    } catch {
-      alert('Не удалось удалить (сеть)')
-    } finally {
-      menuDel.textContent = prevText
-      menuDel.disabled = false
-      inFlight = false
-    }
+    closeMsgMenu()
+    openScopeMenu({ type: 'delete_message', messageId })
+    inFlight = false
   }
   // Desktop
   menuDel.onclick = runDel
@@ -813,6 +1232,13 @@ document.addEventListener('click', (e) => {
   closeForwardMenu()
 })
 
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('scope-menu')
+  if (!menu || menu.style.display === 'none') return
+  if (menu.contains(e.target)) return
+  closeScopeMenu()
+})
+
 updateAttachButton()
 
 // Dialog context menu (delete direct chats)
@@ -829,6 +1255,38 @@ function dialogMeta(el) {
 }
 
 if (dialogsList) {
+  // iPhone: reliably open user card on avatar tap (not the row).
+  let suppressNextRowClick = false
+
+  dialogsList.addEventListener(
+    'touchstart',
+    async (e) => {
+      const ava = e.target?.closest?.('.dialog-ava')
+      if (!ava) return
+      const userId = Number(ava.getAttribute('data-user'))
+      if (!Number.isFinite(userId)) return
+      suppressNextRowClick = true
+      e.preventDefault()
+      e.stopPropagation()
+      hideTooltip()
+      await openUserCard(userId)
+    },
+    { passive: false, capture: true }
+  )
+
+  dialogsList.addEventListener(
+    'click',
+    (e) => {
+      if (!suppressNextRowClick) return
+      const ava = e.target?.closest?.('.dialog-ava')
+      if (!ava) return
+      e.preventDefault()
+      e.stopPropagation()
+      suppressNextRowClick = false
+    },
+    true
+  )
+
   // Right-click on desktop
   dialogsList.addEventListener('contextmenu', (e) => {
     const el = closestDialogEl(e.target)
@@ -894,39 +1352,9 @@ if (dialogMenuDel) {
     if (inFlight) return
     if (!activeMenuChannelId) return
     inFlight = true
-    if (!confirm('Удалить чат? Он исчезнет у обоих участников.')) {
-      inFlight = false
-      return
-    }
-    dialogMenuDel.disabled = true
-    const prevText = dialogMenuDel.textContent
-    dialogMenuDel.textContent = '...'
-    try {
-      const res = await fetch(`/api/chat/channels/${activeMenuChannelId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (res.status !== 204) {
-        const json = await res.json().catch(() => ({}))
-        alert(json.error || `Не удалось удалить (HTTP ${res.status})`)
-        return
-      }
-      // refresh list; if we deleted active chat, go back
-      if (activeChannelId === activeMenuChannelId) {
-        activeChannelId = null
-        document.getElementById('chat-title').textContent = ''
-        document.getElementById('messages-area').innerHTML = ''
-        setDialogOpen(false)
-      }
-      closeDialogMenu()
-      await loadChannels()
-    } catch {
-      alert('Не удалось удалить (сеть)')
-    } finally {
-      dialogMenuDel.textContent = prevText
-      dialogMenuDel.disabled = false
-      inFlight = false
-    }
+    closeDialogMenu()
+    openScopeMenu({ type: 'delete_chat', channelId: activeMenuChannelId })
+    inFlight = false
   }
   // Desktop
   dialogMenuDel.onclick = run
@@ -945,6 +1373,76 @@ if (forwardCancel) {
     },
     { passive: false }
   )
+}
+
+// Copy modal controls
+const copyClose = document.getElementById('copy-close')
+const copyDone = document.getElementById('copy-done')
+const copyModal = document.getElementById('copy-modal')
+if (copyClose) copyClose.onclick = closeCopyModal
+if (copyDone) copyDone.onclick = closeCopyModal
+if (copyModal) {
+  copyModal.addEventListener('click', (e) => {
+    if (e.target === copyModal) closeCopyModal()
+  })
+}
+
+// Scope menu actions ("у меня" / "у всех")
+const scopeCancel = document.getElementById('scope-cancel')
+const scopeMe = document.getElementById('scope-me')
+const scopeAll = document.getElementById('scope-all')
+if (scopeCancel) {
+  scopeCancel.onclick = closeScopeMenu
+  scopeCancel.addEventListener('touchstart', (e) => { e.preventDefault(); closeScopeMenu() }, { passive: false })
+}
+if (scopeMe) {
+  let lastTouch = 0
+  const run = (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation?.()
+    }
+    runScope('me')
+  }
+  scopeMe.addEventListener('touchstart', (e) => { lastTouch = Date.now(); run(e) }, { passive: false })
+  scopeMe.addEventListener('click', (e) => {
+    if (Date.now() - lastTouch < 800) return
+    run(e)
+  })
+}
+if (scopeAll) {
+  let lastTouch = 0
+  const run = (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation?.()
+    }
+    runScope('all')
+  }
+  scopeAll.addEventListener('touchstart', (e) => { lastTouch = Date.now(); run(e) }, { passive: false })
+  scopeAll.addEventListener('click', (e) => {
+    if (Date.now() - lastTouch < 800) return
+    run(e)
+  })
+}
+
+async function runScope(scope) {
+  if (!scopePending) return
+  const pending = scopePending
+  closeScopeMenu()
+  if (pending.type === 'pin') return togglePinScoped(pending.messageId, pending.pinned, scope)
+  if (pending.type === 'delete_message') {
+    const label = scope === 'me' ? 'Удалить сообщение у меня?' : 'Удалить сообщение у всех?'
+    if (!confirm(label)) return
+    return deleteMessageScoped(pending.messageId, scope)
+  }
+  if (pending.type === 'delete_chat') {
+    const label = scope === 'me'
+      ? 'Удалить чат у меня?'
+      : 'Удалить чат у всех? Он исчезнет у обоих участников.'
+    if (!confirm(label)) return
+    return deleteChatScoped(pending.channelId, scope)
+  }
 }
 
 document.getElementById('message-input').onkeydown = (e) => {
@@ -967,26 +1465,16 @@ document.getElementById('user-search').oninput = async function() {
 
   if (!q) {
     results.classList.remove('show')
-    channels = allChannels
-    renderDialogs()
     return
   }
 
   searchTimeout = setTimeout(async () => {
-    // filter dialogs by phrase
-    const ql = q.toLowerCase()
-    channels = allChannels.filter((c) => String(c.name || '').toLowerCase().includes(ql))
-    renderDialogs()
-    await fetchAndShowUsers(q)
+    await fetchAndShowSearch(q)
   }, 250)
 }
 
 document.getElementById('user-search').onfocus = async function() {
-  // On tap: show list even without typing (messenger-like)
-  const q = this.value.trim()
-  if (!q) {
-    await fetchAndShowUsers('')
-  }
+  // On tap: invite user to type a name/word/phrase (no dropdown by default)
 }
 
 async function fetchAndShowUsers(query) {
@@ -1026,6 +1514,98 @@ async function fetchAndShowUsers(query) {
   })
 }
 
+async function fetchAndShowSearch(query) {
+  const results = document.getElementById('search-results')
+  const q = (query ?? '').trim()
+  if (!q) {
+    results.classList.remove('show')
+    results.innerHTML = ''
+    return
+  }
+
+  const res = await fetch(`/api/chat/search?q=${encodeURIComponent(q)}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    results.classList.remove('show')
+    return
+  }
+
+  const users = json.data?.users || []
+  const messages = json.data?.messages || []
+
+  const parts = []
+  if (users.length) {
+    parts.push(`<div class="search-section">По имени</div>`)
+    parts.push(
+      users
+        .map(
+          (u) =>
+            `<div class="search-result-item" data-kind="user" data-id="${u.id}" data-name="${escapeHtml(u.full_name)}">${escapeHtml(u.full_name)}</div>`
+        )
+        .join('')
+    )
+  }
+  if (messages.length) {
+    parts.push(`<div class="search-section">По содержимому</div>`)
+    parts.push(
+      messages
+        .map((m) => {
+          const title = escapeHtml(m.channel_name || 'Чат')
+          const snippet = escapeHtml(String(m.content || '').slice(0, 90))
+          return `<div class="search-result-item" data-kind="msg" data-id="${m.id}" data-channel="${m.channel_id}">
+            ${snippet}
+            <span class="meta">${title}</span>
+          </div>`
+        })
+        .join('')
+    )
+  }
+
+  results.innerHTML = parts.length ? parts.join('') : `<div class="search-section">Ничего не найдено</div>`
+  results.classList.add('show')
+
+  results.querySelectorAll('.search-result-item').forEach((item) => {
+    item.onclick = async () => {
+      const kind = item.getAttribute('data-kind')
+      if (kind === 'user') {
+        const userId = parseInt(item.getAttribute('data-id'), 10)
+        const name = item.getAttribute('data-name') || ''
+        results.classList.remove('show')
+        document.getElementById('user-search').value = ''
+        const res = await fetch('/api/chat/channels', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ user_id: userId })
+        })
+        const json = await res.json()
+        await loadChannels()
+        openChannel(json.data.id, name)
+        setTimeout(() => document.getElementById('message-input')?.focus(), 0)
+        return
+      }
+      if (kind === 'msg') {
+        const channelId = Number(item.getAttribute('data-channel'))
+        const msgId = Number(item.getAttribute('data-id'))
+        const ch = allChannels.find((c) => c.id === channelId)
+        results.classList.remove('show')
+        document.getElementById('user-search').value = ''
+        await openChannel(channelId, ch?.name || 'Чат')
+
+        // try to load older history until message is found (best-effort)
+        let attempts = 0
+        while (!document.getElementById(`m-${msgId}`) && hasMoreHistory && attempts < 8) {
+          await loadOlderMessages()
+          attempts += 1
+        }
+        const el = document.getElementById(`m-${msgId}`)
+        if (el) el.scrollIntoView({ block: 'center' })
+      }
+    }
+  })
+}
+
 const plusBtn = document.getElementById('open-user-picker')
 if (plusBtn) {
   plusBtn.onclick = async () => {
@@ -1041,6 +1621,19 @@ if (plusBtn) {
 
 loadChannels()
 updateComposerVisibility(false)
+
+document.getElementById('user-card-close')?.addEventListener('click', closeUserCard)
+document.getElementById('user-card-modal')?.addEventListener('click', function (e) {
+  if (e.target === this) closeUserCard()
+})
+
+document.getElementById('chat-title')?.addEventListener('click', async function (e) {
+  const raw = this.getAttribute('data-user') || ''
+  const id = Number(raw)
+  if (!Number.isFinite(id)) return
+  e.preventDefault()
+  await openUserCard(id)
+})
 
 document.getElementById('back-to-dialogs').onclick = () => {
   activeChannelId = null

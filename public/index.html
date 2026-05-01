@@ -11,15 +11,49 @@
 </head>
 <body>
 
-<div class="topbar">
-  <h1>График конного клуба</h1>
+<div class="topbar topbar--home">
+  <button id="club-brand" type="button" class="club-brand" aria-label="Клуб" title="Клуб">
+    <span class="club-logo" id="club-logo-wrap" aria-hidden="true">
+      <span class="club-logo-fallback" id="club-logo-fallback">🏇</span>
+      <img id="club-logo-img" alt="" style="display:none">
+    </span>
+  </button>
   <div class="user-info">
+    <button type="button" class="profile-btn" data-nav-back aria-label="Назад" title="Назад">
+      <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6"></path>
+      </svg>
+    </button>
     <span id="user-name"></span>
-    <a href="/admin-users.html" class="chat-link" id="admin-users-link" style="display:none">Пользователи</a>
-    <a href="/admin-venues.html" class="chat-link" id="admin-venues-link" style="display:none">Площадки</a>
-    <a href="/chat.html" class="chat-link">Чат</a>
-    <button id="logout-btn">Выйти</button>
+    <a href="/admin.html" class="chat-link" id="admin-panel-link" style="display:none">Админка</a>
+    <a href="/chat.html" class="profile-btn" aria-label="Чат" title="Чат">
+      <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 5h16v10H7l-3 3V5z"></path>
+      </svg>
+    </a>
+    <a href="/profile.html" class="profile-btn" aria-label="Профиль" title="Профиль" id="profile-link">
+      <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20 21a8 8 0 0 0-16 0"></path>
+        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"></path>
+      </svg>
+    </a>
   </div>
+</div>
+
+<div class="modal-bg" id="club-modal" style="display:none">
+  <div class="modal" style="width:min(520px, 94vw)">
+    <div class="modal-header">
+      <span class="modal-title" id="club-modal-title">Клуб</span>
+      <button class="modal-close" id="club-modal-close">✕</button>
+    </div>
+    <div id="club-modal-body" style="font-size:13px;color:#444"></div>
+  </div>
+</div>
+
+<div class="main-tabs" style="max-width:980px;margin:10px auto 0">
+  <a class="main-tab active" href="/">Расписание</a>
+  <a class="main-tab" href="/people.html">Люди</a>
+  <a class="main-tab" href="/horses.html">Лошади</a>
 </div>
 
 <div class="schedule-wrap" style="max-width:980px;margin:0 auto">
@@ -31,5 +65,6 @@
 </div>
 
 <script src="home.js"></script>
+<script src="nav.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'horseclub-v29'
+const CACHE_NAME = 'horseclub-v96'
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
@@ -8,14 +8,22 @@ const URLS_TO_CACHE = [
   '/register.html',
   '/change-password.html',
   '/invite.html',
+  '/profile.html',
   '/admin-users.html',
   '/admin-venues.html',
+  '/admin.html',
+  '/admin-club.html',
+  '/people.html',
   '/style.css',
   '/home.js',
+  '/people.js',
+  '/profile.js',
   '/venue.js',
   '/admin-users.js',
   '/admin-venues.js',
+  '/admin-club.js',
   '/chat.js',
+  '/horses.js',
   '/login.js',
   '/register.js',
   '/change-password.js',
@@ -62,7 +70,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Static assets: stale-while-revalidate for CSS/JS so fixes arrive quickly.
+  // Static assets: network-first for CSS/JS so fixes apply immediately.
   const url = new URL(req.url)
   const isSameOrigin = url.origin === self.location.origin
   const isCssOrJs =
@@ -71,16 +79,13 @@ self.addEventListener('fetch', (event) => {
 
   if (isCssOrJs) {
     event.respondWith(
-      caches.match(req).then((cached) => {
-        const fetchAndUpdate = fetch(req)
-          .then((netRes) => {
-            const copy = netRes.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy))
-            return netRes
-          })
-          .catch(() => cached)
-        return cached || fetchAndUpdate
-      })
+      fetch(req)
+        .then((netRes) => {
+          const copy = netRes.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy))
+          return netRes
+        })
+        .catch(() => caches.match(req))
     )
     return
   }
