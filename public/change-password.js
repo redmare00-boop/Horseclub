@@ -45,7 +45,16 @@ document.getElementById('save-btn').onclick = async () => {
 
   const updatedUser = { ...user, must_change_password: false }
   localStorage.setItem('user', JSON.stringify(updatedUser))
-  showOk('Пароль обновлён. Сейчас откроем расписание...')
-  setTimeout(() => (window.location.href = '/'), 800)
+
+  let ret = ''
+  try { ret = String(sessionStorage.getItem('profile_return') || '') } catch {}
+  try { sessionStorage.removeItem('profile_return') } catch {}
+
+  const next = ret && ret !== window.location.href ? ret : '/'
+  const hint = next === '/' ? 'Сейчас откроем главную…' : 'Возвращаем в профиль…'
+  showOk(`Пароль обновлён. ${hint}`)
+  setTimeout(() => {
+    window.location.href = next
+  }, 800)
 }
 

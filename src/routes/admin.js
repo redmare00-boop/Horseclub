@@ -341,6 +341,14 @@ router.delete('/invites/:id', requireAuth, requireAdmin, async (req, res) => {
 
 router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
   try {
+    const targetId = parseInt(req.params.id, 10)
+    const actorId = parseInt(String(req.user.id), 10)
+    if (Number.isFinite(targetId) && Number.isFinite(actorId) && targetId === actorId) {
+      return res.status(400).json({
+        error: 'Свой пароль меняйте в профиле: «Сменить пароль» (нужен текущий пароль).'
+      })
+    }
+
     const { password } = req.body
     if (!password) {
       return res.status(400).json({ error: 'Введите новый пароль' })
@@ -353,7 +361,7 @@ router.post('/users/:id/reset-password', requireAuth, requireAdmin, async (req, 
 
     const updated = await pool.query(
       `UPDATE users SET password_hash = $1, must_change_password = false WHERE id = $2 RETURNING id`,
-      [password_hash, req.params.id]
+      [password_hash, targetId]
     )
 
     if (updated.rows.length === 0) {

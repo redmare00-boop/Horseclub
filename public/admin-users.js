@@ -354,6 +354,16 @@ async function loadUsers() {
                 : ' —'
             }
           </div>
+          ${!isSelf ? `
+          <div style="border-top:1px solid #eee;margin-top:14px;padding-top:12px">
+            <div style="font-weight:600;margin-bottom:6px;color:#333;font-size:13px">Новый пароль пользователя</div>
+            <div style="font-size:12px;color:#888;margin-bottom:10px">Без ввода старого пароля — только для администратора.</div>
+            <input type="password" id="admin-reset-pw" autocomplete="new-password" placeholder="Новый пароль (от 6 символов)" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:10px;margin-bottom:8px;box-sizing:border-box">
+            <input type="password" id="admin-reset-pw2" autocomplete="new-password" placeholder="Повтор пароля" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:10px;margin-bottom:10px;box-sizing:border-box">
+            <button type="button" id="admin-reset-submit" style="width:100%;padding:10px 12px;background:#534AB7;color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer">Установить пароль</button>
+            ${activeUserViewArchived ? `<div style="font-size:12px;color:#A32D2D;margin-top:10px">Аккаунт в архиве — войти нельзя, пока не восстановите пользователя.</div>` : ''}
+          </div>
+          ` : ''}
           <div class="user-card-modal-row" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
             ${isSelf ? '' : `<button type="button" class="btn-ghost" id="admin-user-chat" style="padding:8px 10px;border-radius:10px">Написать в чат</button>`}
           </div>
@@ -373,6 +383,41 @@ async function loadUsers() {
               await ensureDirectChatWith(id, displayName)
             } catch (err2) {
               showError(`Не удалось открыть чат: ${escapeHtml(err2?.message || 'ошибка')}`)
+            }
+          })
+        }
+        const resetBtn = document.getElementById('admin-reset-submit')
+        if (resetBtn && !isSelf) {
+          resetBtn.addEventListener('click', async () => {
+            const p1 = document.getElementById('admin-reset-pw')?.value || ''
+            const p2 = document.getElementById('admin-reset-pw2')?.value || ''
+            if (p1.length < 6) {
+              showError('Пароль должен быть не менее 6 символов')
+              return
+            }
+            if (p1 !== p2) {
+              showError('Пароли не совпадают')
+              return
+            }
+            try {
+              const resPw = await fetch(`/api/admin/users/${id}/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ password: p1 })
+              })
+              const jsonPw = await resPw.json().catch(() => ({}))
+              if (!resPw.ok) {
+                showError(jsonPw.error || `Не удалось сменить пароль (HTTP ${resPw.status})`)
+                return
+              }
+              const inp1 = document.getElementById('admin-reset-pw')
+              const inp2 = document.getElementById('admin-reset-pw2')
+              if (inp1) inp1.value = ''
+              if (inp2) inp2.value = ''
+              closeUserViewModal()
+              showOk('Пароль пользователя обновлён')
+            } catch {
+              showError('Не удалось сменить пароль (сеть)')
             }
           })
         }

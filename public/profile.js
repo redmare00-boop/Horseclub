@@ -13,6 +13,10 @@ document.getElementById('logout-btn').onclick = () => {
   window.location.href = '/login.html'
 }
 
+document.getElementById('change-password-link')?.addEventListener('click', () => {
+  try { sessionStorage.setItem('profile_return', window.location.href) } catch {}
+})
+
 function safeReturnFromProfile() {
   let target = ''
   try { target = String(sessionStorage.getItem('profile_return') || '') } catch {}
