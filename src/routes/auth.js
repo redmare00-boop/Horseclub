@@ -57,14 +57,24 @@ async function adminExists() {
 router.post('/login', async (req, res) => {
   try {
     const { login, password } = req.body
+    const loginNorm = String(login ?? '').trim()
 
     const result = await pool.query(
-      'SELECT * FROM users WHERE login = $1',
-      [login]
+      `
+      SELECT * FROM users
+      WHERE lower(btrim(login)) = lower(btrim($1::text))
+      LIMIT 2
+      `,
+      [loginNorm]
     )
 
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Неверный логин или пароль' })
+    }
+    if (result.rows.length > 1) {
+      return res.status(400).json({
+        error: 'Найдено несколько логинов, отличающихся регистром. Обратитесь к администратору.'
+      })
     }
 
     const user = result.rows[0]
@@ -154,7 +164,14 @@ router.post('/forgot-password', async (req, res) => {
       return res.json(generic)
     }
 
-    const result = await pool.query('SELECT * FROM users WHERE login = $1', [login])
+    const result = await pool.query(
+      `
+      SELECT * FROM users
+      WHERE lower(btrim(login)) = lower(btrim($1::text))
+      LIMIT 1
+      `,
+      [login]
+    )
     if (result.rows.length === 0) {
       return res.json(generic)
     }
@@ -201,13 +218,27 @@ router.post('/forgot-password', async (req, res) => {
 
     return res.json({ ok: true, mail_sent: false })
   } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[forgot-password]', err?.message || err)
     if (String(err.message || '').includes('password_reset_tokens')) {
       return res.status(503).json({
         error:
           'Таблица сброса пароля не создана. Запустите npm run db:schema на сервере или обновите базу.'
       })
     }
-    res.status(500).json({ error: err.message })
+    const msg = String(err.message || '')
+    if (msg.includes('password authentication failed') || err.code === '28P01') {
+      return res.status(503).json({
+        error:
+          'Сервер не подключился к базе данных (часто неверный пароль или строка DATABASE_URL в .env / Railway). Это настройка сервера, а не ваш пароль от аккаунта.'
+      })
+    }
+    res.status(500).json({
+      error:
+        process.env.NODE_ENV === 'production'
+          ? 'Временная ошибка сервера. Попробуйте позже.'
+          : msg || 'Ошибка сервера'
+    })
   }
 })
 
