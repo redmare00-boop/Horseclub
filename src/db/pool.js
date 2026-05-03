@@ -23,4 +23,4 @@ const pool = new Pool(
       }
 );
 
-module.exports = { query: (...args) => pool.query(...args) };
+module.exports = pool

@@ -95,6 +95,8 @@ async function refresh() {
   document.getElementById('f-nickname').value = me.nickname || ''
   document.getElementById('f-status').value = me.status || ''
   document.getElementById('f-phone').value = me.phone || ''
+  const emailEl = document.getElementById('f-email')
+  if (emailEl) emailEl.value = me.email || ''
   renderHeader(me)
 
   // Keep local user cache fresh for headers across the app
@@ -106,11 +108,16 @@ async function save() {
   const nickname = document.getElementById('f-nickname').value.trim()
   const status = document.getElementById('f-status').value
   const phone = document.getElementById('f-phone').value.trim()
+  const emailEl = document.getElementById('f-email')
+  const email = emailEl ? emailEl.value.trim() : ''
+
+  const payload = { nickname, status, phone }
+  if (emailEl) payload.email = email
 
   const res = await fetch('/api/users/me', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ nickname, status, phone })
+    body: JSON.stringify(payload)
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {

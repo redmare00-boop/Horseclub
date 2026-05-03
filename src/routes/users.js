@@ -33,6 +33,14 @@ function pickStatus(raw) {
   return allowed.has(v) ? v : ''
 }
 
+/** @returns {string} empty | normalized email | null if invalid */
+function normalizeEmail(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return ''
+  if (s.length > 254) return null
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s.toLowerCase() : null
+}
+
 // ---- Directory: all users (for "Люди" page) ----
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -102,12 +110,14 @@ router.get('/me', requireAuth, async (req, res) => {
     const hasAvatar = await hasColumn('users', 'avatar_url')
     const hasStatus = await hasColumn('users', 'status')
     const hasPhone = await hasColumn('users', 'phone')
+    const hasEmail = await hasColumn('users', 'email')
     const hasDeletedAt = await hasColumn('users', 'deleted_at')
 
     const nicknameSql = hasNickname ? `COALESCE(NULLIF(btrim(u.nickname), ''), u.login)` : `u.login`
     const avatarSql = hasAvatar ? `COALESCE(u.avatar_url, '')` : `''`
     const statusSql = hasStatus ? `COALESCE(u.status, '')` : `''`
     const phoneSql = hasPhone ? `COALESCE(u.phone, '')` : `''`
+    const emailSql = hasEmail ? `COALESCE(u.email, '')` : `''`
     const deletedSql = hasDeletedAt ? `COALESCE((u.deleted_at IS NOT NULL), false)` : `false`
 
     const u = await pool.query(
@@ -120,6 +130,7 @@ router.get('/me', requireAuth, async (req, res) => {
         ${avatarSql} as avatar_url,
         ${statusSql} as status,
         ${phoneSql} as phone,
+        ${emailSql} as email,
         ${deletedSql} as deleted
       FROM users u
       WHERE u.id = $1
@@ -142,7 +153,8 @@ router.put('/me', requireAuth, async (req, res) => {
     const hasNickname = await hasColumn('users', 'nickname')
     const hasStatus = await hasColumn('users', 'status')
     const hasPhone = await hasColumn('users', 'phone')
-    if (!hasNickname && !hasStatus && !hasPhone) {
+    const hasEmail = await hasColumn('users', 'email')
+    if (!hasNickname && !hasStatus && !hasPhone && !hasEmail) {
       return res.status(400).json({ error: 'Профиль пока не поддерживает редактирование (нужно обновить базу)' })
     }
 
@@ -156,6 +168,14 @@ router.put('/me', requireAuth, async (req, res) => {
     if (hasNickname) { sets.push(`nickname = $${idx++}`); params.push(nickname || null) }
     if (hasStatus) { sets.push(`status = $${idx++}`); params.push(status || null) }
     if (hasPhone) { sets.push(`phone = $${idx++}`); params.push(phone || null) }
+    if (hasEmail) {
+      const em = normalizeEmail(req.body?.email)
+      if (em === null) {
+        return res.status(400).json({ error: 'Некорректный адрес почты' })
+      }
+      sets.push(`email = $${idx++}`)
+      params.push(em || null)
+    }
     params.push(userId)
 
     const updated = await pool.query(

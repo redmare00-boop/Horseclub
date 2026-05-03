@@ -1,10 +1,12 @@
-const CACHE_NAME = 'horseclub-v97'
+const CACHE_NAME = 'horseclub-v98'
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
   '/venue.html',
   '/chat.html',
   '/login.html',
+  '/forgot-password.html',
+  '/password-reset.html',
   '/register.html',
   '/change-password.html',
   '/invite.html',
@@ -25,6 +27,8 @@ const URLS_TO_CACHE = [
   '/chat.js',
   '/horses.js',
   '/login.js',
+  '/forgot-password.js',
+  '/password-reset.js',
   '/register.js',
   '/change-password.js',
   '/invite.js',
